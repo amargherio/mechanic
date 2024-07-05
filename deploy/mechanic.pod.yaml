@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mechanic
+  namespace: default
+spec:
+  hostPID: true
+  serviceAccountName: mechanic
+  containers:
+    - name: mechanic
+      image: amargheriocss.azurecr.io/platform-apps/mechanic:0.0.1-2
+      imagePullPolicy: Always
+      securityContext:
+        privileged: true
+        readOnlyRootFilesystem: true
+      env:
+        - name: MECHANIC_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
