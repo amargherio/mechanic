@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-
 	"github.com/spf13/viper"
 
 	"go.uber.org/zap"
@@ -35,8 +34,11 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 		return Config{}, err
 	}
 
+	log.Debugw("Successfully read configuration", "config", config.AllSettings())
+
 	return Config{
 		DrainConditions: DrainConditions{},
 		KubeConfig:      kc,
+		NodeName:        config.Get("NODE_NAME").(string),
 	}, nil
 }

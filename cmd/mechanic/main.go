@@ -28,11 +28,13 @@ func main() {
 	}
 
 	// get our kubernnetes client and start an informer on our node
+	log.Info("Building the Kubernetes clientset")
 	clientset, err := kubernetes.NewForConfig(cfg.KubeConfig)
 	if err != nil {
 		log.Errorw("Failed to create clientset", "error", err)
 	}
 
+	log.Info("Building the informer factory for our node informer client.")
 	factory := informers.NewSharedInformerFactoryWithOptions(
 		clientset,
 		0,
@@ -83,12 +85,17 @@ func main() {
 					}
 					log.Infow("Node drained", "node", node.Name)
 				}
+			} else {
+				log.Infow("No scheduled events found for node in the last update", "node", node.Name)
 			}
 		},
 	})
 
 	stop := make(chan struct{})
 	defer close(stop)
+
+	// start the informer
+	log.Infow("Starting the informer", "node", cfg.NodeName)
 	factory.Start(stop)
 
 	// wait for caches to sync
