@@ -22,3 +22,12 @@ using CAS or [Node Autoprovisioning](https://learn.microsoft.com/en-us/azure/aks
 ensure that the cluster can scale to meet the demands of the pods being rescheduled.
 
 ## How does it work?
+
+**mechanic** runs as a DaemonSet in your cluster. Each daemon pod monitors node updates and, for each update, checks the 
+node conditions. If a `VMEventScheduled` condition is present, it queries the [Instance Metadata Service](https://learn.microsoft.com/en-us/azure/virtual-machines/instance-metadata-service?tabs=linux) for maintenance
+information.
+
+If the maintenance event is deemed impactful, it will cordon the node and begin draining pods to other nodes in the cluster.
+During the drain flow, a label is added to the node (`mechanic.cordoned`) indicating that it was cordoned by mechanic. If the daemon pod is restarted,
+it will check for this label and use it as an input on whether to uncordon the node if the `VMEventScheduled` condition is
+no longer present.

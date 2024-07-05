@@ -51,6 +51,7 @@ func main() {
 
 			conditions := node.Status.Conditions
 			hasEventScheduled := false
+			isCordoned := false
 			for _, condition := range conditions {
 				if condition.Type == "VMEventScheduled" && condition.Status == "True" {
 					log.Infow("Node has an upcoming scheduled event. Querying IMDS to determine if a drain is required",
@@ -64,6 +65,8 @@ func main() {
 				}
 			}
 
+			isCordoned = node.Spec.Unschedulable
+
 			if hasEventScheduled {
 				// query IMDS for more information on the scheduled event
 				shouldDrain := checkIfDrainRequired(ctx, node)
@@ -72,6 +75,7 @@ func main() {
 					log.Infow("A drain has been determined as appropriate for the node", "node", node.Name)
 					// cordon the node, then drain
 					node.Spec.Unschedulable = true
+					node.Labels["mechanic.cordoned"] = "true"
 					_, err := clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
 					if err != nil {
 						log.Errorw("Failed to cordon node", "node", node.Name, "error", err)
@@ -86,7 +90,29 @@ func main() {
 					log.Infow("Node drained", "node", node.Name)
 				}
 			} else {
-				log.Infow("No scheduled events found for node in the last update", "node", node.Name)
+				if isCordoned {
+					// check for the mechanic cordoned label - if it's there and there's no event scheduled, uncordon the node and remove the label
+					if _, ok := node.Labels["mechanic.cordoned"]; ok {
+						log.Infow("Node is cordoned by mechanic but no scheduled events found. Uncordoning node and removing the label", "node", node.Name)
+						labels := node.GetLabels()
+						delete(labels, "mechanic.cordoned")
+
+						node.Spec.Unschedulable = false
+						node.SetLabels(labels)
+
+						_, err := clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+						if err != nil {
+							log.Errorw("Failed to uncordon node", "node", node.Name, "error", err)
+						} else {
+							log.Infow("Node uncordoned", "node", node.Name)
+						}
+					}
+				} else {
+					log.Infow(
+						"Node is not cordoned and has no scheduled events, no action needed",
+						"node", node.Name,
+					)
+				}
 			}
 		},
 	})
