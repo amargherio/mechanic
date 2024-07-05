@@ -1,6 +1,6 @@
 # Mechanic
 
-> Itelligently managing your AKS nodes when platform maintenance is required.
+> Working under the hood to stop disruptions to your AKS nodes
 
 ## Description
 
