@@ -1,5 +1,5 @@
 # Mechanic
-[![Go Report Card](https://goreportcard.com/report/github.com/amargherio/mechanic)](https://goreportcard.com/report/github.com/amargherio/mechanic)
+[![Go Report Card](https://goreportcard.com/badge/github.com/amargherio/mechanic)](https://goreportcard.com/report/github.com/amargherio/mechanic)
 ![License](https://img.shields.io/github/license/amargherio/mechanic)
 ![Go version](https://img.shields.io/github/go-mod/go-version/amargherio/mechanic)
 
