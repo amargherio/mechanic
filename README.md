@@ -1,4 +1,7 @@
 # Mechanic
+[![Go Report Card](https://goreportcard.com/report/github.com/amargherio/mechanic)](https://goreportcard.com/report/github.com/amargherio/mechanic)
+![License](https://img.shields.io/github/license/amargherio/mechanic)
+![Go version](https://img.shields.io/github/go-mod/go-version/amargherio/mechanic)
 
 > Working under the hood to stop disruptions to your AKS nodes
 
@@ -20,6 +23,28 @@ implementation used by AKS will manage the `VMEventScheduled` node condition whi
 As the pods are drained from the node, without Cluster Autoscaler the cluster could exhaust available compute resources;
 using CAS or [Node Autoprovisioning](https://learn.microsoft.com/en-us/azure/aks/node-autoprovision?tabs=azure-cli) would 
 ensure that the cluster can scale to meet the demands of the pods being rescheduled.
+
+### Installing mechanic in a cluster
+
+The recommended way to run mechanic is through a DaemonSet - this ensures that each node in the cluster has a monitor that
+can coordinate cordon and drain operations. There are some limitations at this time - namely:
+
+- No ARM nodes are supported. The container images for mechanic are built for amd64 architectures.
+- No Windows node support. The container images target a Linux environment.
+
+To install the DaemonSet in the cluster, you can run the following command:
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/amargherio/mechanic/main/deploy/mechanic.ds.yaml
+```
+
+There are some caveats and items worth noting:
+
+- The DaemonSet is deployed in a custom `mechanic` namespace. This is to ensure that the DaemonSet can be managed independently
+  of other resources in the cluster.
+- The DaemonSet pulls the image present in the GitHub Container Registry for this repo. If you have pull restrictions, you need to
+  make sure you've got the image pulled into a registry you're permitted to pull from.
+- All images use a base container image of Azure Linux.
 
 ## How does it work?
 
