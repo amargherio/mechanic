@@ -49,6 +49,9 @@ spec:
       labels:
         app: mechanic
     spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+        kubernetes.io/arch: amd64
       serviceAccountName: mechanic
       hostPID: true # Facilitates entering the host mount namespace via init
       containers:
@@ -63,3 +66,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+      resources:
+        limits:
+          memory: 50Mi
+        requests:
+          cpu: 100m
+          memory: 25Mi
