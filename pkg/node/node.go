@@ -9,7 +9,7 @@ import (
 	"k8s.io/kubectl/pkg/drain"
 )
 
-func CordonNode(ctx context.Context, clientset *kubernetes.Clientset, node *v1.Node) error {
+func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
 	log := ctx.Value("logger").(*zap.SugaredLogger)
 
 	// check if the node is cordoned
@@ -30,7 +30,7 @@ func CordonNode(ctx context.Context, clientset *kubernetes.Clientset, node *v1.N
 	return nil
 }
 
-func UncordonNode(ctx context.Context, clientset *kubernetes.Clientset, node *v1.Node) error {
+func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
 	labels := node.GetLabels()
 	delete(labels, "mechanic.cordoned")
 
@@ -44,7 +44,7 @@ func UncordonNode(ctx context.Context, clientset *kubernetes.Clientset, node *v1
 	return nil
 }
 
-func DrainNode(ctx context.Context, clientset *kubernetes.Clientset, node *v1.Node) error {
+func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
 	log := ctx.Value("logger").(*zap.SugaredLogger)
 
 	// drain the node
