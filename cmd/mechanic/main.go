@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/amargherio/mechanic/internal/config"
+	n "github.com/amargherio/mechanic/pkg/node"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/kubectl/pkg/drain"
 )
 
 func main() {
@@ -72,35 +72,31 @@ func main() {
 				shouldDrain := checkIfDrainRequired(ctx, node)
 
 				if shouldDrain {
-					log.Infow("A drain has been determined as appropriate for the node", "node", node.Name)
 					// cordon the node, then drain
-					node.Spec.Unschedulable = true
-					node.Labels["mechanic.cordoned"] = "true"
-					_, err := clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+					log.Infow("A drain has been determined as appropriate for the node", "node", node.Name)
+
+					err := n.CordonNode(ctx, clientset, node)
 					if err != nil {
 						log.Errorw("Failed to cordon node", "node", node.Name, "error", err)
-					}
-					log.Infow("Node cordoned", "node", node.Name)
+					} else {
+						log.Infow("Node cordoned", "node", node.Name)
 
-					// drain the node
-					err = drainNode(ctx, clientset, node)
-					if err != nil {
-						log.Errorw("Failed to drain node", "node", node.Name, "error", err)
+						// drain the node
+						err = n.DrainNode(ctx, clientset, node)
+						if err != nil {
+							log.Errorw("Failed to drain node", "node", node.Name, "error", err)
+						} else {
+							log.Infow("Node drained", "node", node.Name)
+						}
 					}
-					log.Infow("Node drained", "node", node.Name)
 				}
 			} else {
 				if isCordoned {
 					// check for the mechanic cordoned label - if it's there and there's no event scheduled, uncordon the node and remove the label
 					if _, ok := node.Labels["mechanic.cordoned"]; ok {
 						log.Infow("Node is cordoned by mechanic but no scheduled events found. Uncordoning node and removing the label", "node", node.Name)
-						labels := node.GetLabels()
-						delete(labels, "mechanic.cordoned")
 
-						node.Spec.Unschedulable = false
-						node.SetLabels(labels)
-
-						_, err := clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+						err := n.UncordonNode(ctx, clientset, node)
 						if err != nil {
 							log.Errorw("Failed to uncordon node", "node", node.Name, "error", err)
 						} else {
@@ -131,25 +127,6 @@ func main() {
 
 	// block main process
 	<-stop
-}
-
-func drainNode(ctx context.Context, clientset *kubernetes.Clientset, node *v1.Node) error {
-	log := ctx.Value("logger").(*zap.SugaredLogger)
-
-	drainHelper := &drain.Helper{
-		Client:              clientset,
-		Force:               true,
-		IgnoreAllDaemonSets: true,
-		DeleteEmptyDirData:  true,
-		Timeout:             0,
-	}
-
-	if err := drain.RunNodeDrain(drainHelper, node.Name); err != nil {
-		return err
-	}
-	log.Infow("Node drained", "node", node.Name, "drainOptions", drainHelper)
-
-	return nil
 }
 
 func checkIfDrainRequired(ctx context.Context, i *v1.Node) bool {
