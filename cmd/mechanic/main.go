@@ -36,6 +36,10 @@ func main() {
 		log.Errorw("Failed to create clientset", "error", err)
 	}
 
+	// create the IMDS client
+	log.Debugw("Getting the IMDS client object")
+	ic := imds.IMDSClient{}
+
 	log.Info("Building the informer factory for our node informer client.")
 	factory := informers.NewSharedInformerFactoryWithOptions(
 		clientset,
@@ -71,7 +75,7 @@ func main() {
 
 			if hasEventScheduled {
 				// query IMDS for more information on the scheduled event
-				shouldDrain, err := imds.CheckIfDrainRequired(ctx, node)
+				shouldDrain, err := imds.CheckIfDrainRequired(ctx, ic, node)
 				if err != nil {
 					log.Errorw("Failed to query IMDS for scheduled event information", "error", err)
 				}

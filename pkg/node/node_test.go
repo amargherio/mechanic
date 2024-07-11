@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"go.uber.org/zap/zaptest"
@@ -55,10 +56,7 @@ func TestCordonNode(t *testing.T) {
 				t.Errorf("CordonNode() error = %v, expectError %v", err, tc.expectError)
 				return
 			}
-
-			if node.Spec.Unschedulable != tc.expectedCordon {
-				t.Errorf("Expected node.Spec.Unschedulable to be %v, got %v", tc.expectedCordon, node.Spec.Unschedulable)
-			}
+			assert.Equal(t, tc.expectedCordon, node.Spec.Unschedulable, "Expected node.Spec.Unschedulable to be %v, got %v", tc.expectedCordon, node.Spec.Unschedulable)
 		})
 	}
 }

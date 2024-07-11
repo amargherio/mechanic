@@ -6,6 +6,8 @@ toolchain go1.22.4
 
 require (
 	github.com/spf13/viper v1.19.0
+	github.com/stretchr/testify v1.9.0
+	go.uber.org/mock v0.4.0
 	go.uber.org/zap v1.27.0
 	k8s.io/api v0.30.2
 	k8s.io/apimachinery v0.30.2
@@ -57,6 +59,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect

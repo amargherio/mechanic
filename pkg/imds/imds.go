@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/amargherio/mechanic/pkg/consts"
-	"go.uber.org/zap"
-	v1 "k8s.io/api/core/v1"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/amargherio/mechanic/pkg/consts"
+	"go.uber.org/zap"
+	v1 "k8s.io/api/core/v1"
 )
 
 type ScheduledEventType string
@@ -34,15 +35,15 @@ const (
 
 // ScheduledEvent represents a single event returned as part of the full response returned from the IMDS scheduled events API
 type ScheduledEvent struct {
-	EventId           string             `json:"EventId"`
-	Type              ScheduledEventType `json:"EventType"`
-	ResourceType      string             `json:"ResourceType"`
-	Resources         []string           `json:"Resources"`
-	EventStatus       ScheduledEventStatus
-	NotBefore         time.Time            `json:"NotBefore"` // time in UTC
-	Description       string               `json:"Description"`
-	EventSource       ScheduledEventSource `json:"EventSource"`
-	DurationInSeconds time.Duration        `json:"DurationInSeconds"`
+	EventId      string             `json:"EventId"`
+	Type         ScheduledEventType `json:"EventType"`
+	ResourceType string             `json:"ResourceType"`
+	Resources    []string           `json:"Resources"`
+	EventStatus  ScheduledEventStatus
+	NotBefore    time.Time            `json:"NotBefore"` // time in UTC
+	Description  string               `json:"Description"`
+	EventSource  ScheduledEventSource `json:"EventSource"`
+	Duration     time.Duration        `json:"DurationInSeconds"`
 }
 
 // ScheduledEventsResponse represents the full response returned from the IMDS scheduled events API
@@ -51,12 +52,18 @@ type ScheduledEventsResponse struct {
 	Events        []ScheduledEvent `json:"Events"`
 }
 
-func CheckIfDrainRequired(ctx context.Context, node *v1.Node) (bool, error) {
+type IMDS interface {
+	QueryIMDS(ctx context.Context) (ScheduledEventsResponse, error)
+}
+
+type IMDSClient struct{}
+
+func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) (bool, error) {
 	log := ctx.Value("logger").(*zap.SugaredLogger)
 	log.Debugw("Checking if drain is required for node", "node", node.Name)
 
 	// query IMDS to get scheduled event data
-	resp, err := queryIMDS(ctx)
+	resp, err := ic.QueryIMDS(ctx)
 	if err != nil {
 		log.Errorw("Failed to query IMDS", "error", err)
 		return false, err
@@ -69,6 +76,9 @@ func CheckIfDrainRequired(ctx context.Context, node *v1.Node) (bool, error) {
 
 	// since we have things to process, grab the node name without the base36 encoding
 	instance, err := getInstanceName(ctx, node)
+	if err != nil {
+		return false, err
+	}
 
 	// for each event in the scheduled events response, check if the event is for the current instance
 	for _, event := range resp.Events {
@@ -114,7 +124,7 @@ func getInstanceName(ctx context.Context, node *v1.Node) (string, error) {
 	return fmt.Sprintf("%s_%d", vm, decoded), nil
 }
 
-func queryIMDS(ctx context.Context) (ScheduledEventsResponse, error) {
+func (ic *IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, error) {
 	log := ctx.Value("logger").(*zap.SugaredLogger)
 	log.Debug("Querying IMDS")
 
