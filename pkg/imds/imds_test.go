@@ -2,9 +2,10 @@ package imds
 
 import (
 	"context"
-	"go.uber.org/zap/zaptest"
 	"testing"
 	"time"
+
+	"go.uber.org/zap/zaptest"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"

@@ -124,7 +124,7 @@ func getInstanceName(ctx context.Context, node *v1.Node) (string, error) {
 	return fmt.Sprintf("%s_%d", vm, decoded), nil
 }
 
-func (ic *IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, error) {
+func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, error) {
 	log := ctx.Value("logger").(*zap.SugaredLogger)
 	log.Debug("Querying IMDS")
 
