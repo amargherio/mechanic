@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+
 	"github.com/amargherio/mechanic/internal/config"
+	"github.com/amargherio/mechanic/pkg/imds"
 	n "github.com/amargherio/mechanic/pkg/node"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
@@ -69,7 +71,10 @@ func main() {
 
 			if hasEventScheduled {
 				// query IMDS for more information on the scheduled event
-				shouldDrain := checkIfDrainRequired(ctx, node)
+				shouldDrain, err := imds.CheckIfDrainRequired(ctx, node)
+				if err != nil {
+					log.Errorw("Failed to query IMDS for scheduled event information", "error", err)
+				}
 
 				if shouldDrain {
 					// cordon the node, then drain
@@ -127,8 +132,4 @@ func main() {
 
 	// block main process
 	<-stop
-}
-
-func checkIfDrainRequired(ctx context.Context, i *v1.Node) bool {
-	return false
 }

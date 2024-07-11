@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -71,12 +72,20 @@ func CheckIfDrainRequired(ctx context.Context, node *v1.Node) (bool, error) {
 
 	// for each event in the scheduled events response, check if the event is for the current instance
 	for _, event := range resp.Events {
-		if slices.Contains(event.Resources, instance) {
+		if event.ResourceType == "VirtualMachine" && slices.Contains(event.Resources, instance) {
 			// this event impacts the node we're on. let's see what kind of event it is so we know if we need to take action
 			switch event.Type {
 			case Reboot, Redeploy, Preempt, Terminate:
 				log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId)
 				return true, nil
+			case Freeze:
+				// TODO: Freeze event types also indicate an LM which could be critical...how do we differentiate? using description is a poor workaround
+				if strings.Contains(event.Description, "memory-preserving Live Migration") {
+					log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId)
+					return true, nil
+				} else {
+					log.Debugw("Found a freeze event that does not require draining", "event", event, "eventId", event.EventId)
+				}
 			default:
 				log.Debugw("Found an event that targets current node, but does not require draining", "event", event, "eventId", event.EventId)
 			}
