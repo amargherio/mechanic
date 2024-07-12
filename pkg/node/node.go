@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,8 +19,11 @@ func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.No
 		return nil
 	}
 
-	// cordon the node
+	// update the labels to show mechanic cordoned the node and cordon the node
 	node.Spec.Unschedulable = true
+	labels := node.GetLabels()
+	labels["mechanic.cordoned"] = "true"
+	node.SetLabels(labels)
 	_, err := clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
 	if err != nil {
 		log.Errorw("Failed to cordon node", "node", node.Name, "error", err)
