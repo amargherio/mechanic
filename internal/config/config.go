@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+
 	"github.com/spf13/viper"
 
 	"go.uber.org/zap"
@@ -25,7 +26,6 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 
 	config := viper.New()
 	config.SetEnvPrefix("MECHANIC")
-
 	config.BindEnv("NODE_NAME")
 
 	kc, err := rest.InClusterConfig()

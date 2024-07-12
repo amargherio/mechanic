@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.jsonschema.json
+issues:
+  exclude:
+    - "Error return value of `(logger.Sync|ni.AddEventHandler|config.BindEnv)` is not checked"
+linters-settings:
+  staticcheck:
+    checks:
+      - all
+      - '-SA1029'
