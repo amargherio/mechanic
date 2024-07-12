@@ -2,6 +2,9 @@ name: mechanic CI
 
 on: [push]
 
+permissions:
+  contents: read
+
 jobs:
   test-run:
     runs-on: ubuntu-latest
