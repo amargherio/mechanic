@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2024-07-15
+
+### 🐛 Bug Fixes
+
+- Added missing logic to label nodes when we cordon them
+
+### ⚙️ Miscellaneous Tasks
+
+- Repo maintenance
+- Mistake in dependabot config
+
 ## [0.1.1] - 2024-07-12
 
 ### 🐛 Bug Fixes
