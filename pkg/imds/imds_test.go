@@ -7,6 +7,8 @@ import (
 
 	"go.uber.org/zap/zaptest"
 
+	"github.com/amargherio/mechanic/internal/appstate"
+	"github.com/amargherio/mechanic/internal/config"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
@@ -114,23 +116,36 @@ func TestCheckIfDrainRequired(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	defer logger.Sync() // flushes buffer, if any
 	sugar := logger.Sugar()
-	ctx := context.WithValue(context.Background(), "logger", sugar)
 
 	for _, tc := range tests {
 
 		ctrl := gomock.NewController(t)
 		t.Run(tc.name, func(t *testing.T) {
+			state := appstate.State{
+				HasEventScheduled: false,
+				IsCordoned:        false,
+				IsDrained:         false,
+				ShouldDrain:       false,
+			}
+
+			vals := config.ContextValues{
+				Logger: sugar,
+				State:  &state,
+			}
+
+			ctx := context.WithValue(context.Background(), "values", vals)
+
 			mockIMDS := configureMocks(tc, ctrl)
 
 			node := &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-vmss000001"},
 			}
 
-			result, err := CheckIfDrainRequired(ctx, mockIMDS, node)
+			err := CheckIfDrainRequired(ctx, mockIMDS, node)
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-			assert.Equal(t, tc.expectedResult, result)
+			assert.Equal(t, tc.expectedResult, state.ShouldDrain)
 		})
 	}
 }

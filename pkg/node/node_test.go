@@ -2,8 +2,11 @@ package node
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/amargherio/mechanic/internal/appstate"
+	"github.com/amargherio/mechanic/internal/config"
+	"github.com/stretchr/testify/assert"
 
 	"go.uber.org/zap/zaptest"
 	v1 "k8s.io/api/core/v1"
@@ -15,7 +18,6 @@ func TestCordonNode(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	defer logger.Sync() // flushes buffer, if any
 	sugar := logger.Sugar()
-	ctx := context.WithValue(context.Background(), "logger", sugar)
 
 	nodeName := "test-node"
 	node := &v1.Node{
@@ -49,6 +51,20 @@ func TestCordonNode(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			state := appstate.State{
+				HasEventScheduled: false,
+				IsCordoned:        false,
+				IsDrained:         false,
+				ShouldDrain:       false,
+			}
+
+			vals := config.ContextValues{
+				Logger: sugar,
+				State:  &state,
+			}
+
+			ctx := context.WithValue(context.Background(), "values", vals)
+
 			tc.prepNodeFunc(node)
 
 			err := CordonNode(ctx, clientset, node)
@@ -57,6 +73,7 @@ func TestCordonNode(t *testing.T) {
 				return
 			}
 			assert.Equal(t, tc.expectedCordon, node.Spec.Unschedulable, "Expected node.Spec.Unschedulable to be %v, got %v", tc.expectedCordon, node.Spec.Unschedulable)
+			assert.Equal(t, tc.expectedCordon, state.IsCordoned, "Expected state.IsCordoned to be %v, got %v", tc.expectedCordon, state.IsCordoned)
 		})
 	}
 }
@@ -65,7 +82,6 @@ func TestDrainNode(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	defer logger.Sync() // flushes buffer, if any
 	sugar := logger.Sugar()
-	ctx := context.WithValue(context.Background(), "logger", sugar)
 
 	nodeName := "test-node"
 	node := &v1.Node{
@@ -75,24 +91,42 @@ func TestDrainNode(t *testing.T) {
 	clientset := fake.NewSimpleClientset(node)
 
 	tests := []struct {
-		name        string
-		nodeName    string
-		expectError bool
+		name          string
+		nodeName      string
+		expectError   bool
+		expectedState bool
 	}{
 		{
-			name:        "drain success",
-			nodeName:    nodeName,
-			expectError: false,
+			name:          "drain success",
+			nodeName:      nodeName,
+			expectError:   false,
+			expectedState: true,
 		},
 		// Additional test cases can be added here
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			state := appstate.State{
+				HasEventScheduled: true,
+				IsCordoned:        true,
+				IsDrained:         false,
+				ShouldDrain:       true,
+			}
+
+			vals := config.ContextValues{
+				Logger: sugar,
+				State:  &state,
+			}
+
+			ctx := context.WithValue(context.Background(), "values", vals)
+
 			err := DrainNode(ctx, clientset, node)
 			if (err != nil) != tc.expectError {
 				t.Errorf("DrainNode() error = %v, expectError %v", err, tc.expectError)
 			}
+
+			assert.Equal(t, tc.expectedState, state.IsDrained, "Expected state.IsDrained to be %v, got %v", tc.expectedState, state.IsDrained)
 		})
 	}
 }
