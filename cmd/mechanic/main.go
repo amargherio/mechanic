@@ -15,13 +15,35 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+type AppState struct {
+	hasScheduledEvent bool
+	isCordoned        bool
+	isDrained         bool
+}
+
+type ContextValues struct {
+	logger *zap.SugaredLogger
+	state  AppState
+}
+
 func main() {
 	// initialize zap logging - check for prod env and if it's prod, then use the prod logger. otherwise use dev
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 	log := logger.Sugar()
 
-	ctx := context.WithValue(context.Background(), "logger", log)
+	state := AppState{
+		hasScheduledEvent: false,
+		isCordoned:        false,
+		isDrained:         false,
+	}
+
+	vals := ContextValues{
+		logger: log,
+		state:  state,
+	}
+
+	ctx := context.WithValue(context.Background(), "values", vals)
 
 	// Read in config
 	cfg, err := config.ReadConfiguration(ctx)
@@ -72,6 +94,7 @@ func main() {
 			}
 
 			isCordoned = node.Spec.Unschedulable
+			log.Debugw("Finished checking node conditions and current state.", "node", node.Name, "hasEventScheduled", hasEventScheduled, "isCordoned", isCordoned)
 
 			if hasEventScheduled {
 				// query IMDS for more information on the scheduled event
