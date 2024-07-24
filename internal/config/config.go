@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 
+	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/spf13/viper"
 
 	"go.uber.org/zap"
@@ -13,6 +14,13 @@ import (
 type DrainConditions struct {
 }
 
+// ContextValues is a struct that holds the logger and state of the application for use in the shared application context
+type ContextValues struct {
+	Logger *zap.SugaredLogger
+	State  *appstate.State
+}
+
+// Config is a struct that holds the configuration for the application
 type Config struct {
 	DrainConditions DrainConditions
 	KubeConfig      *rest.Config
