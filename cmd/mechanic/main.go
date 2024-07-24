@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/amargherio/mechanic/internal/config"
 	"github.com/amargherio/mechanic/pkg/imds"
 	n "github.com/amargherio/mechanic/pkg/node"
@@ -15,32 +17,39 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type AppState struct {
-	hasScheduledEvent bool
-	isCordoned        bool
-	isDrained         bool
-}
-
-type ContextValues struct {
-	logger *zap.SugaredLogger
-	state  AppState
-}
-
 func main() {
 	// initialize zap logging - check for prod env and if it's prod, then use the prod logger. otherwise use dev
-	logger, _ := zap.NewDevelopment()
+	var logger *zap.Logger
+	var defaultLevel zap.AtomicLevel = zap.NewAtomicLevel()
+	defaultLevel.SetLevel(zap.InfoLevel)
+	env := os.Getenv("ENV")
+	if env == "" {
+		env = "dev"
+	}
+
+	// build out logger based on the environment
+	if env == "prod" {
+		config := zap.NewProductionConfig()
+		config.Level = defaultLevel
+		logger, _ = config.Build()
+	} else {
+		logger, _ = zap.NewDevelopment()
+	}
+
 	defer logger.Sync()
 	log := logger.Sugar()
 
-	state := AppState{
-		hasScheduledEvent: false,
-		isCordoned:        false,
-		isDrained:         false,
+	// continue with app startup
+	state := appstate.State{
+		HasEventScheduled: false,
+		IsCordoned:        false,
+		IsDrained:         false,
+		ShouldDrain:       false,
 	}
 
-	vals := ContextValues{
-		logger: log,
-		state:  state,
+	vals := config.ContextValues{
+		Logger: log,
+		State:  &state,
 	}
 
 	ctx := context.WithValue(context.Background(), "values", vals)
@@ -78,52 +87,73 @@ func main() {
 			log.Infow("Node updated, checking for updated conditions", "node", node.Name)
 
 			conditions := node.Status.Conditions
-			hasEventScheduled := false
-			isCordoned := false
+		conditionsLoop:
 			for _, condition := range conditions {
-				if condition.Type == "VMEventScheduled" && condition.Status == "True" {
-					log.Infow("Node has an upcoming scheduled event. Querying IMDS to determine if a drain is required",
-						"node", node.Name,
-						"lastTransitionTime", condition.LastTransitionTime,
-						"reason", condition.Reason,
-						"message", condition.Message)
-
-					hasEventScheduled = true
-					break
+				if condition.Type == "VMEventScheduled" {
+					// check the status of the condition. if it's true, update state.HasEventScheduled to true. if it's false, reset it to false and
+					// remove the cordon if we're the ones who cordoned it
+					switch condition.Status {
+					case "True":
+						log.Infow("Node has an upcoming scheduled event. Querying IMDS to determine if a drain is required",
+							"node", node.Name,
+							"lastTransitionTime", condition.LastTransitionTime,
+							"reason", condition.Reason,
+							"message", condition.Message)
+						state.HasEventScheduled = true
+						break conditionsLoop
+					case "False":
+						log.Infow("Node has no upcoming scheduled events", "node", node.Name)
+						state.HasEventScheduled = false
+						break conditionsLoop
+					}
 				}
 			}
 
-			isCordoned = node.Spec.Unschedulable
-			log.Debugw("Finished checking node conditions and current state.", "node", node.Name, "hasEventScheduled", hasEventScheduled, "isCordoned", isCordoned)
+			log.Debugw("Finished checking node conditions and current state.", "node", node.Name, "state", state)
 
-			if hasEventScheduled {
+			if state.HasEventScheduled {
 				// query IMDS for more information on the scheduled event
-				shouldDrain, err := imds.CheckIfDrainRequired(ctx, ic, node)
+				err := imds.CheckIfDrainRequired(ctx, ic, node)
 				if err != nil {
 					log.Errorw("Failed to query IMDS for scheduled event information", "error", err)
 				}
 
-				if shouldDrain {
+				if state.ShouldDrain {
 					// cordon the node, then drain
 					log.Infow("A drain has been determined as appropriate for the node", "node", node.Name)
 
+					// attempt to cordon the node
 					err := n.CordonNode(ctx, clientset, node)
 					if err != nil {
 						log.Errorw("Failed to cordon node", "node", node.Name, "error", err)
-					} else {
-						log.Infow("Node cordoned", "node", node.Name)
+					}
 
-						// drain the node
-						err = n.DrainNode(ctx, clientset, node)
+					if state.IsCordoned {
+						log.Infow("Node is already cordoned, skipping cordon", "node", node.Name)
+					} else {
+						err := n.CordonNode(ctx, clientset, node)
+						if err != nil {
+							log.Errorw("Failed to cordon node", "node", node.Name, "error", err)
+						} else {
+							state.IsCordoned = true
+							log.Infow("Node cordoned", "node", node.Name)
+						}
+					}
+
+					if state.IsDrained {
+						log.Infow("Node is already drained, skipping drain", "node", node.Name)
+					} else {
+						err := n.DrainNode(ctx, clientset, node)
 						if err != nil {
 							log.Errorw("Failed to drain node", "node", node.Name, "error", err)
 						} else {
+							state.IsDrained = true
 							log.Infow("Node drained", "node", node.Name)
 						}
 					}
 				}
 			} else {
-				if isCordoned {
+				if state.IsCordoned {
 					// check for the mechanic cordoned label - if it's there and there's no event scheduled, uncordon the node and remove the label
 					if _, ok := node.Labels["mechanic.cordoned"]; ok {
 						log.Infow("Node is cordoned by mechanic but no scheduled events found. Uncordoning node and removing the label", "node", node.Name)
@@ -134,12 +164,9 @@ func main() {
 						} else {
 							log.Infow("Node uncordoned", "node", node.Name)
 						}
+					} else {
+						log.Infow("Node is cordoned but does not have the mechanic label - no action required to uncordon", "node", node.Name)
 					}
-				} else {
-					log.Infow(
-						"Node is not cordoned and has no scheduled events, no action needed",
-						"node", node.Name,
-					)
 				}
 			}
 		},
