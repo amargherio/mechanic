@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/amargherio/mechanic/internal/config"
 	"github.com/amargherio/mechanic/pkg/consts"
-	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -58,26 +58,31 @@ type IMDS interface {
 
 type IMDSClient struct{}
 
-func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) (bool, error) {
-	log := ctx.Value("logger").(*zap.SugaredLogger)
+func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) error {
+	vals := ctx.Value("values").(config.ContextValues)
+	log := vals.Logger
+
 	log.Debugw("Checking if drain is required for node", "node", node.Name)
 
 	// query IMDS to get scheduled event data
 	resp, err := ic.QueryIMDS(ctx)
 	if err != nil {
 		log.Errorw("Failed to query IMDS", "error", err)
-		return false, err
+		vals.State.ShouldDrain = false
+		return err
 	}
 
 	if len(resp.Events) == 0 {
 		log.Debug("No scheduled events found")
-		return false, nil
+		vals.State.ShouldDrain = false
+		return err
 	}
 
 	// since we have things to process, grab the node name without the base36 encoding
 	instance, err := getInstanceName(ctx, node)
 	if err != nil {
-		return false, err
+		vals.State.ShouldDrain = false
+		return err
 	}
 
 	// for each event in the scheduled events response, check if the event is for the current instance
@@ -87,12 +92,14 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) (bool, er
 			switch event.Type {
 			case Reboot, Redeploy, Preempt, Terminate:
 				log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId)
-				return true, nil
+				vals.State.ShouldDrain = true
+				return nil
 			case Freeze:
 				// TODO: Freeze event types also indicate an LM which could be critical...how do we differentiate? using description is a poor workaround
 				if strings.Contains(event.Description, "memory-preserving Live Migration") {
 					log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId)
-					return true, nil
+					vals.State.ShouldDrain = true
+					return nil
 				} else {
 					log.Debugw("Found a freeze event that does not require draining", "event", event, "eventId", event.EventId)
 				}
@@ -101,11 +108,14 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) (bool, er
 			}
 		}
 	}
-	return false, nil
+	log.Infow("Did not find any events that require draining the node", "node", node.Name)
+	vals.State.ShouldDrain = false
+	return nil
 }
 
 func getInstanceName(ctx context.Context, node *v1.Node) (string, error) {
-	log := ctx.Value("logger").(*zap.SugaredLogger)
+	vals := ctx.Value("values").(config.ContextValues)
+	log := vals.Logger
 	log.Debugw("Getting instance name for node", "node", node.Name)
 
 	// get the last six characters of the node name
@@ -125,7 +135,8 @@ func getInstanceName(ctx context.Context, node *v1.Node) (string, error) {
 }
 
 func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, error) {
-	log := ctx.Value("logger").(*zap.SugaredLogger)
+	vals := ctx.Value("values").(config.ContextValues)
+	log := vals.Logger
 	log.Debug("Querying IMDS")
 
 	// query IMDS for scheduled events
