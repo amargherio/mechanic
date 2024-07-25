@@ -159,10 +159,51 @@ func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, er
 	}
 
 	defer resp.Body.Close()
-	if err := json.NewDecoder(resp.Body).Decode(&eventResponse); err != nil {
+
+	var generic map[string]interface{}
+	log.Debugw("IMDS response", "status", resp.Status, "json", resp.Body)
+	if err := json.NewDecoder(resp.Body).Decode(&generic); err != nil {
 		log.Errorw("Failed to decode IMDS response", "error", err)
 		return ScheduledEventsResponse{}, err
 	}
 
+	eventResponse = ScheduledEventsResponse{}
+	buildEventResponse(ctx, generic, &eventResponse)
+
 	return eventResponse, nil
+}
+
+func buildEventResponse(ctx context.Context, generic map[string]interface{}, eventResponse *ScheduledEventsResponse) {
+	vals := ctx.Value("values").(config.ContextValues)
+	log := vals.Logger
+	log.Debugw("Creating event response from IMDS response", "response", generic)
+
+	eventResponse.IncarnationID = generic["DocumentIncarnation"].(string)
+	events := generic["Events"].([]interface{})
+	for _, e := range events {
+		event := ScheduledEvent{}
+		eventMap := e.(map[string]interface{})
+
+		event.EventId = eventMap["EventId"].(string)
+		event.Type = ScheduledEventType(eventMap["EventType"].(string))
+		event.ResourceType = eventMap["ResourceType"].(string)
+		event.EventStatus = ScheduledEventStatus(eventMap["EventStatus"].(string))
+		event.Description = eventMap["Description"].(string)
+		event.EventSource = ScheduledEventSource(eventMap["EventSource"].(string))
+		event.Resources = eventMap["Resources"].([]string)
+
+		// handle time and duration parsing
+		parsed, err := time.Parse("Mon, 02 Jan 2006 15:04:05 GMT", eventMap["NotBefore"].(string))
+		if err != nil {
+			log.Warnw("Failed to parse NotBefore time", "error", err)
+		}
+		event.NotBefore = parsed
+		event.Duration = time.Duration(eventMap["DurationInSeconds"].(int)) * time.Second
+
+		log.Debugw("Adding parsed event to event slice", "event", event)
+
+		eventResponse.Events = append(eventResponse.Events, event)
+	}
+
+	log.Debugw(fmt.Sprintf("Returning an event response with %d events", len(eventResponse.Events)), "eventCount", len(eventResponse.Events), "eventId", eventResponse.IncarnationID)
 }
