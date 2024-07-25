@@ -29,7 +29,9 @@ type Config struct {
 
 func ReadConfiguration(ctx context.Context) (Config, error) {
 	// grab the logger from the context
-	log := ctx.Value("logger").(*zap.SugaredLogger)
+	vals := ctx.Value("values").(ContextValues)
+	log := vals.Logger
+
 	log.Debugw("Generating app config")
 
 	config := viper.New()
