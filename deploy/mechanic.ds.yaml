@@ -61,7 +61,7 @@ spec:
       hostPID: true # Facilitates entering the host mount namespace via init
       containers:
       - name: mechanic
-        image: amargheriocss.azurecr.io/platform-apps/mechanic:0.1.2-1-nonroot
+        image: ghcr.io/amargherio/mechanic:0.1.2-1-nonroot
         imagePullPolicy: Always
         securityContext:
           privileged: true # Gives permission to nsenter /proc/1/ns/mnt
