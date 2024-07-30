@@ -48,7 +48,7 @@ type ScheduledEvent struct {
 
 // ScheduledEventsResponse represents the full response returned from the IMDS scheduled events API
 type ScheduledEventsResponse struct {
-	IncarnationID string           `json:"DocumentIncarnation"`
+	IncarnationID int64            `json:"DocumentIncarnation"`
 	Events        []ScheduledEvent `json:"Events"`
 }
 
@@ -178,7 +178,7 @@ func buildEventResponse(ctx context.Context, generic map[string]interface{}, eve
 	log := vals.Logger
 	log.Debugw("Creating event response from IMDS response", "response", generic)
 
-	eventResponse.IncarnationID = generic["DocumentIncarnation"].(string)
+	eventResponse.IncarnationID = generic["DocumentIncarnation"].(int64)
 	events := generic["Events"].([]interface{})
 	for _, e := range events {
 		event := ScheduledEvent{}

@@ -26,7 +26,7 @@ func TestCheckIfDrainRequired(t *testing.T) {
 		{
 			name: "empty IMDS response - no events",
 			mockResponse: ScheduledEventsResponse{
-				IncarnationID: "1",
+				IncarnationID: int64(1),
 				Events:        []ScheduledEvent{},
 			},
 			expectedResult: false,
@@ -34,7 +34,7 @@ func TestCheckIfDrainRequired(t *testing.T) {
 		{
 			name: "scheduled event that doesn't impact target node",
 			mockResponse: ScheduledEventsResponse{
-				IncarnationID: "1",
+				IncarnationID: 1,
 				Events: []ScheduledEvent{
 					{
 						EventId:      "test",
@@ -54,7 +54,7 @@ func TestCheckIfDrainRequired(t *testing.T) {
 		{
 			name: "scheduled event that requires drain",
 			mockResponse: ScheduledEventsResponse{
-				IncarnationID: "1",
+				IncarnationID: 11,
 				Events: []ScheduledEvent{
 					{
 						EventId:      "test",
@@ -74,7 +74,7 @@ func TestCheckIfDrainRequired(t *testing.T) {
 		{
 			name: "scheduled event that doesn't require drain",
 			mockResponse: ScheduledEventsResponse{
-				IncarnationID: "1",
+				IncarnationID: 2,
 				Events: []ScheduledEvent{
 					{
 						EventId:      "test",
@@ -92,20 +92,20 @@ func TestCheckIfDrainRequired(t *testing.T) {
 			expectedResult: false,
 		},
 		{
-			name: "live migration that requires drain",
+			name: "live migration that does requires drain",
 			mockResponse: ScheduledEventsResponse{
-				IncarnationID: "1",
+				IncarnationID: -1,
 				Events: []ScheduledEvent{
 					{
-						EventId:      "test",
+						Description:  "Virtual machine is being paused because of a memory-preserving Live Migration operation.",
+						Duration:     5,
+						EventId:      "73578921-FFE4-4A5B-95C7-FEB9BBBB3B09",
+						EventSource:  Platform,
+						EventStatus:  Scheduled,
 						Type:         Freeze,
+						NotBefore:    time.Now().Add(1 * time.Hour),
 						ResourceType: "VirtualMachine",
 						Resources:    []string{"test-vmss_1"},
-						EventStatus:  Scheduled,
-						NotBefore:    time.Now().Add(1 * time.Hour),
-						Description:  "memory-preserving Live Migration blah blah",
-						EventSource:  Platform,
-						Duration:     3 * time.Second,
 					},
 				},
 			},
