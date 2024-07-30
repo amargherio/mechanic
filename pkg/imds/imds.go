@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -48,7 +47,7 @@ type ScheduledEvent struct {
 
 // ScheduledEventsResponse represents the full response returned from the IMDS scheduled events API
 type ScheduledEventsResponse struct {
-	IncarnationID int64            `json:"DocumentIncarnation"`
+	IncarnationID float64          `json:"DocumentIncarnation"`
 	Events        []ScheduledEvent `json:"Events"`
 }
 
@@ -78,16 +77,14 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) error {
 		return err
 	}
 
-	// since we have things to process, grab the node name without the base36 encoding
-	instance, err := getInstanceName(ctx, node)
-	if err != nil {
-		vals.State.ShouldDrain = false
-		return err
-	}
-
 	// for each event in the scheduled events response, check if the event is for the current instance
 	for _, event := range resp.Events {
-		if event.ResourceType == "VirtualMachine" && slices.Contains(event.Resources, instance) {
+		impacted, err := isNodeImpacted(ctx, node, event)
+		if err != nil {
+			return err
+		}
+
+		if impacted {
 			// this event impacts the node we're on. let's see what kind of event it is so we know if we need to take action
 			switch event.Type {
 			case Reboot, Redeploy, Preempt, Terminate:
@@ -111,6 +108,31 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) error {
 	log.Infow("Did not find any events that require draining the node", "node", node.Name)
 	vals.State.ShouldDrain = false
 	return nil
+}
+
+func isNodeImpacted(ctx context.Context, node *v1.Node, event ScheduledEvent) (bool, error) {
+	vals := ctx.Value("values").(config.ContextValues)
+	log := vals.Logger
+	log.Debugw("Checking if node is impacted by event", "node", node.Name, "event", event.EventId)
+
+	// get the instance name for the node
+	instance, err := getInstanceName(ctx, node)
+	if err != nil {
+		return false, err
+	}
+
+	// check if the event impacts the node
+	if event.ResourceType == "VirtualMachine" {
+		for _, value := range event.Resources {
+			if value == instance || strings.Contains(value, instance) {
+				log.Debugw("Node is impacted by event", "node", node.Name, "event", event.EventId)
+				return true, nil
+			}
+		}
+	}
+
+	log.Debugw("Node is not impacted by event", "node", node.Name, "event", event.EventId)
+	return false, nil
 }
 
 func getInstanceName(ctx context.Context, node *v1.Node) (string, error) {
@@ -178,7 +200,7 @@ func buildEventResponse(ctx context.Context, generic map[string]interface{}, eve
 	log := vals.Logger
 	log.Debugw("Creating event response from IMDS response", "response", generic)
 
-	eventResponse.IncarnationID = generic["DocumentIncarnation"].(int64)
+	eventResponse.IncarnationID = generic["DocumentIncarnation"].(float64)
 	events := generic["Events"].([]interface{})
 	for _, e := range events {
 		event := ScheduledEvent{}

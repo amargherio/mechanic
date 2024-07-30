@@ -26,7 +26,7 @@ func TestCheckIfDrainRequired(t *testing.T) {
 		{
 			name: "empty IMDS response - no events",
 			mockResponse: ScheduledEventsResponse{
-				IncarnationID: int64(1),
+				IncarnationID: 1,
 				Events:        []ScheduledEvent{},
 			},
 			expectedResult: false,
@@ -105,7 +105,7 @@ func TestCheckIfDrainRequired(t *testing.T) {
 						Type:         Freeze,
 						NotBefore:    time.Now().Add(1 * time.Hour),
 						ResourceType: "VirtualMachine",
-						Resources:    []string{"test-vmss_1"},
+						Resources:    []string{"_test-vmss_1"},
 					},
 				},
 			},
