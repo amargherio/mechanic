@@ -57,6 +57,7 @@ type IMDS interface {
 
 type IMDSClient struct{}
 
+// CheckIfDrainRequired checks if the node should be drained based on scheduled events from IMDS.
 func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) error {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
@@ -156,6 +157,8 @@ func getInstanceName(ctx context.Context, node *v1.Node) (string, error) {
 	return fmt.Sprintf("%s_%d", vm, decoded), nil
 }
 
+// QueryIMDS queries the Instance Metadata Service (IMDS) for scheduled events.
+// It returns a ScheduledEventsResponse containing the events and an error if any occurred during the query.
 func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, error) {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
@@ -226,7 +229,7 @@ func buildEventResponse(ctx context.Context, generic map[string]interface{}, eve
 			log.Warnw("Failed to parse NotBefore time", "error", err)
 		}
 		event.NotBefore = parsed
-		event.Duration = time.Duration(eventMap["DurationInSeconds"].(int)) * time.Second
+		event.Duration = time.Duration(eventMap["DurationInSeconds"].(float64)) * time.Second
 
 		log.Debugw("Adding parsed event to event slice", "event", event)
 
