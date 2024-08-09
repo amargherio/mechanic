@@ -212,7 +212,13 @@ func buildEventResponse(ctx context.Context, generic map[string]interface{}, eve
 		event.EventStatus = ScheduledEventStatus(eventMap["EventStatus"].(string))
 		event.Description = eventMap["Description"].(string)
 		event.EventSource = ScheduledEventSource(eventMap["EventSource"].(string))
-		event.Resources = eventMap["Resources"].([]string)
+
+		// resources is going to be initially typed as []interface{} so we have to do special things to convert it to
+		// []string
+		event.Resources = make([]string, len(eventMap["Resources"].([]interface{})))
+		for i, v := range eventMap["Resources"].([]interface{}) {
+			event.Resources[i] = v.(string)
+		}
 
 		// handle time and duration parsing
 		parsed, err := time.Parse("Mon, 02 Jan 2006 15:04:05 GMT", eventMap["NotBefore"].(string))
