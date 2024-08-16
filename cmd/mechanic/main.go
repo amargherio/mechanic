@@ -14,7 +14,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
+	"k8s.io/kubectl/pkg/scheme"
 )
 
 func main() {
@@ -66,6 +69,12 @@ func main() {
 	if err != nil {
 		log.Errorw("Failed to create clientset", "error", err)
 	}
+
+	// set up our event recorder and add it to the context values.
+	broadcaster := record.NewBroadcaster()
+	broadcaster.StartLogging(log.Infof)
+	broadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientset.CoreV1().Events("")})
+	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "mechanic"})
 
 	// create the IMDS client
 	log.Debugw("Getting the IMDS client object")
@@ -122,21 +131,19 @@ func main() {
 					// cordon the node, then drain
 					log.Infow("A drain has been determined as appropriate for the node", "node", node.Name)
 
-					// attempt to cordon the node
-					err := n.CordonNode(ctx, clientset, node)
-					if err != nil {
-						log.Errorw("Failed to cordon node", "node", node.Name, "error", err)
-					}
-
+					// check state and attempt to cordon if required
 					if state.IsCordoned {
 						log.Infow("Node is already cordoned, skipping cordon", "node", node.Name)
+						recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s is already cordoned, no need to attempt a cordon.", node.Name)
 					} else {
 						err := n.CordonNode(ctx, clientset, node)
 						if err != nil {
 							log.Errorw("Failed to cordon node", "node", node.Name, "error", err)
+							recorder.Eventf(node, v1.EventTypeWarning, "CordonNode", "Failed to cordon node %s", node.Name)
 						} else {
 							state.IsCordoned = true
 							log.Infow("Node cordoned", "node", node.Name)
+							recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s cordoned by mechanic", node.Name)
 						}
 					}
 
@@ -146,9 +153,11 @@ func main() {
 						err := n.DrainNode(ctx, clientset, node)
 						if err != nil {
 							log.Errorw("Failed to drain node", "node", node.Name, "error", err)
+							recorder.Eventf(node, v1.EventTypeWarning, "DrainNode", "Failed to drain node %s", node.Name)
 						} else {
 							state.IsDrained = true
 							log.Infow("Node drained", "node", node.Name)
+							recorder.Eventf(node, v1.EventTypeNormal, "DrainNode", "Node %s drained by mechanic", node.Name)
 						}
 					}
 				}
@@ -161,8 +170,10 @@ func main() {
 						err := n.UncordonNode(ctx, clientset, node)
 						if err != nil {
 							log.Errorw("Failed to uncordon node", "node", node.Name, "error", err)
+							recorder.Eventf(node, v1.EventTypeWarning, "UncordonNode", "Failed to uncordon node %s", node.Name)
 						} else {
 							log.Infow("Node uncordoned", "node", node.Name)
+							recorder.Eventf(node, v1.EventTypeNormal, "UncordonNode", "Node %s uncordoned by mechanic", node.Name)
 						}
 					} else {
 						log.Infow("Node is cordoned but does not have the mechanic label - no action required to uncordon", "node", node.Name)
