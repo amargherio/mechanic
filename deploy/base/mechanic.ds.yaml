@@ -75,6 +75,20 @@ subjects:
     name: mechanic
     namespace: mechanic
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mechanic-eventer-rb
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mechanic-eventer
+subjects:
+  - kind: ServiceAccount
+    name: mechanic
+    namespace: mechanic
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -108,9 +122,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-      resources:
-        limits:
-          memory: 50Mi
-        requests:
-          cpu: 100m
-          memory: 25Mi
+        resources:
+          limits:
+            memory: 50Mi
+          requests:
+            cpu: 100m
+            memory: 25Mi
