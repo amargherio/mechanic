@@ -208,7 +208,7 @@ func checkForUnneededCordon(ctx context.Context, clientset *kubernetes.Clientset
 
 	if state.IsCordoned || node.Spec.Unschedulable {
 		// if our state shows cordoned but the node isn't unschedulable, update the state and remove labels if required
-		if node.Spec.Unschedulable == false {
+		if !node.Spec.Unschedulable {
 			log.Infow("Node was not cordoned, state is out of sync. Updating the state and removing labels",
 				"node", node.Name,
 				"state", state,
