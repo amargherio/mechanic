@@ -18,11 +18,48 @@ rules:
       - ""
     resources:
       - nodes
+      - pods
     verbs:
       - get
       - list
       - watch
       - update
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - pods/eviction
+    verbs:
+      - create
+  - apiGroups:
+      - "apps"
+    resources:
+      - daemonsets
+      - statefulsets
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - extensions
+    resources:
+      - daemonsets
+      - replicasets
+    verbs:
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mechanic-eventer
+  namespace: default
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
       - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -61,7 +98,7 @@ spec:
       hostPID: true # Facilitates entering the host mount namespace via init
       containers:
       - name: mechanic
-        image: ghcr.io/amargherio/mechanic:0.1.2-1-nonroot
+        image: image:tag
         imagePullPolicy: Always
         securityContext:
           privileged: true # Gives permission to nsenter /proc/1/ns/mnt
@@ -71,9 +108,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-      # resources:
-      #   limits:
-      #     memory: 50Mi
-      #   requests:
-      #     cpu: 100m
-      #     memory: 25Mi
+      resources:
+        limits:
+          memory: 50Mi
+        requests:
+          cpu: 100m
+          memory: 25Mi

@@ -2,8 +2,7 @@
 
 BASE_IMAGES=("base/core:2.0-nonroot" "distroless/debug:2.0-nonroot" "distroless/minimal:2.0-nonroot")
 IMAGE_URL_BASE="mcr.microsoft.com/cbl-mariner"
-TARGET_REGISTRY="ghcr.io/amargherio/mechanic"
-APP_VERSION="0.1.3-rc5"
+APP_VERSION="0.1.3-rc6"
 
 # check if docker and podman are installed. if we have podman but not docker, alias docker to podman
 if command -v podman &> /dev/null; then
