@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"errors"
+	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/amargherio/mechanic/internal/config"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
@@ -28,24 +29,24 @@ func (l *logger) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
+func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, state *appstate.State) error {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
 	// check if our node is cordoned, which throws our app state out of sync
 	if node.Spec.Unschedulable {
-		if !vals.State.IsCordoned {
+		if !state.IsCordoned {
 			// the node is unschedulable but our state is not in sync - check if we did it, and reconcile cordoned state.
 			if _, ok := node.GetLabels()["mechanic.cordoned"]; ok {
-				vals.State.IsCordoned = true
+				state.IsCordoned = true
 				log.Warnw("Node is cordoned, but our state is not in sync. Reconciling state.")
 			} else {
 				log.Infow("Node is cordoned, but we aren't responsible for the cordon.", "node", node.Name)
 				// we could still benefit from the cordon and don't need to cordon again, so sync state
-				vals.State.IsCordoned = true
+				state.IsCordoned = true
 			}
 		}
-		log.Infow("Node is already cordoned", "node", node.Name, "state", vals.State.IsCordoned)
+		log.Infow("Node is already cordoned", "node", node.Name, "state", state.IsCordoned)
 		return nil
 	}
 
@@ -91,11 +92,11 @@ func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.No
 
 	// successfully cordoned
 	log.Infow("Node cordoned", "node", node.Name)
-	vals.State.IsCordoned = true
+	state.IsCordoned = true
 	return nil
 }
 
-func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
+func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, state *appstate.State) error {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
@@ -122,11 +123,11 @@ func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.
 		return retryErr
 	}
 
-	vals.State.IsCordoned = false
+	state.IsCordoned = false
 	return nil
 }
 
-func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
+func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, state *appstate.State) error {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
@@ -152,6 +153,6 @@ func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Nod
 		return err
 	}
 
-	vals.State.IsDrained = true
+	state.IsDrained = true
 	return nil
 }

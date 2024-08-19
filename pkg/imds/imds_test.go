@@ -141,10 +141,12 @@ func TestCheckIfDrainRequired(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "test-vmss000001"},
 			}
 
-			err := CheckIfDrainRequired(ctx, mockIMDS, node)
+			b, err := CheckIfDrainRequired(ctx, mockIMDS, node)
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
+			state.ShouldDrain = b
+
 			assert.Equal(t, tc.expectedResult, state.ShouldDrain)
 		})
 	}

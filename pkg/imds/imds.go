@@ -58,31 +58,30 @@ type IMDS interface {
 type IMDSClient struct{}
 
 // CheckIfDrainRequired checks if the node should be drained based on scheduled events from IMDS.
-func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) error {
+func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) (bool, error) {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
 	log.Debugw("Checking if drain is required for node", "node", node.Name)
+	shouldDrain := false // setting the default drain response to false
 
 	// query IMDS to get scheduled event data
 	resp, err := ic.QueryIMDS(ctx)
 	if err != nil {
 		log.Errorw("Failed to query IMDS", "error", err)
-		vals.State.ShouldDrain = false
-		return err
+		return shouldDrain, err
 	}
 
 	if len(resp.Events) == 0 {
 		log.Debug("No scheduled events found")
-		vals.State.ShouldDrain = false
-		return err
+		return shouldDrain, err
 	}
 
 	// for each event in the scheduled events response, check if the event is for the current instance
 	for _, event := range resp.Events {
 		impacted, err := isNodeImpacted(ctx, node, event)
 		if err != nil {
-			return err
+			return shouldDrain, err
 		}
 
 		if impacted {
@@ -90,14 +89,14 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) error {
 			switch event.Type {
 			case Reboot, Redeploy, Preempt, Terminate:
 				log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId)
-				vals.State.ShouldDrain = true
-				return nil
+				shouldDrain = true
+				return shouldDrain, nil
 			case Freeze:
 				// TODO: Freeze event types also indicate an LM which could be critical...how do we differentiate? using description is a poor workaround
 				if strings.Contains(event.Description, "memory-preserving Live Migration") {
 					log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId)
-					vals.State.ShouldDrain = true
-					return nil
+					shouldDrain = true
+					return shouldDrain, nil
 				} else {
 					log.Debugw("Found a freeze event that does not require draining", "event", event, "eventId", event.EventId)
 				}
@@ -107,8 +106,7 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) error {
 		}
 	}
 	log.Infow("Did not find any events that require draining the node", "node", node.Name)
-	vals.State.ShouldDrain = false
-	return nil
+	return shouldDrain, nil
 }
 
 func isNodeImpacted(ctx context.Context, node *v1.Node, event ScheduledEvent) (bool, error) {
@@ -216,7 +214,7 @@ func buildEventResponse(ctx context.Context, generic map[string]interface{}, eve
 		event.Description = eventMap["Description"].(string)
 		event.EventSource = ScheduledEventSource(eventMap["EventSource"].(string))
 
-		// resources is going to be initially typed as []interface{} so we have to do special things to convert it to
+		// "resources" is going to be initially typed as []interface{} so we have to do special things to convert it to
 		// []string
 		event.Resources = make([]string, len(eventMap["Resources"].([]interface{})))
 		for i, v := range eventMap["Resources"].([]interface{}) {

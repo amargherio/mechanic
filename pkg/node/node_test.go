@@ -67,7 +67,7 @@ func TestCordonNode(t *testing.T) {
 
 			tc.prepNodeFunc(node)
 
-			err := CordonNode(ctx, clientset, node)
+			err := CordonNode(ctx, clientset, node, &state)
 			if (err != nil) != tc.expectError {
 				t.Errorf("CordonNode() error = %v, expectError %v", err, tc.expectError)
 				return
@@ -121,7 +121,7 @@ func TestDrainNode(t *testing.T) {
 
 			ctx := context.WithValue(context.Background(), "values", vals)
 
-			err := DrainNode(ctx, clientset, node)
+			err := DrainNode(ctx, clientset, node, &state)
 			if (err != nil) != tc.expectError {
 				t.Errorf("DrainNode() error = %v, expectError %v", err, tc.expectError)
 			}
