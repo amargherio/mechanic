@@ -32,9 +32,9 @@ func main() {
 
 	// build out logger based on the environment
 	if env == "prod" {
-		config := zap.NewProductionConfig()
-		config.Level = defaultLevel
-		logger, _ = config.Build()
+		zconfig := zap.NewProductionConfig()
+		zconfig.Level = defaultLevel
+		logger, _ = zconfig.Build()
 	} else {
 		logger, _ = zap.NewDevelopment()
 	}
@@ -81,7 +81,13 @@ func main() {
 	ic := imds.IMDSClient{}
 
 	// sync app state with current node status
-	state.SyncNodeStatus(ctx, clientset, cfg.NodeName)
+	node, err := clientset.CoreV1().Nodes().Get(ctx, cfg.NodeName, metav1.GetOptions{})
+	if err != nil {
+		log.Errorw("Failed to get node", "error", err)
+		return
+	}
+
+	state.IsCordoned = node.Spec.Unschedulable
 
 	log.Info("Building the informer factory for our node informer client.")
 	factory := informers.NewSharedInformerFactoryWithOptions(
