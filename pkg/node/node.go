@@ -3,14 +3,30 @@ package node
 import (
 	"context"
 	"errors"
-
 	"github.com/amargherio/mechanic/internal/config"
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/kubectl/pkg/drain"
 )
+
+// temp type for wrapping the zap logger to be io.Writer compatible
+// this is needed for the drain helper to use the zap logger
+type logger struct {
+	level string
+	log   *zap.SugaredLogger
+}
+
+func (l *logger) Write(p []byte) (n int, err error) {
+	if l.level == "error" {
+		l.log.Error(string(p))
+		return len(p), nil
+	}
+	l.log.Info(string(p))
+	return len(p), nil
+}
 
 func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
 	vals := ctx.Value("values").(config.ContextValues)
@@ -68,7 +84,7 @@ func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.No
 		return errors.New("node was not cordoned")
 	}
 
-	if node.GetLabels()["mechanic.cordoned"] != "true" {
+	if res_node.GetLabels()["mechanic.cordoned"] != "true" {
 		log.Errorw("Node was not labeled as cordoned by mechanic", "node", node.Name)
 		return errors.New("node was not labeled as cordoned by mechanic")
 	}
@@ -116,12 +132,20 @@ func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Nod
 
 	// drain the node
 	log.Infow("Beginning node drain", "node", node.Name)
+
+	// hack: use the logger wrapper to make the zap logger compatible with the drain helper
+	errWrap := &logger{log: log, level: "error"}
+	logWrap := &logger{log: log, level: "info"}
+
 	drainHelper := &drain.Helper{
 		Client:              clientset,
+		Ctx:                 ctx,
 		Force:               true,
 		DeleteEmptyDirData:  true,
 		IgnoreAllDaemonSets: true,
-		Timeout:             0,
+		GracePeriodSeconds:  -1,
+		Out:                 logWrap,
+		ErrOut:              errWrap,
 	}
 
 	if err := drain.RunNodeDrain(drainHelper, node.Name); err != nil {
