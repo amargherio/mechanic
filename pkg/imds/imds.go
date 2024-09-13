@@ -62,7 +62,7 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) (bool, er
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
-	log.Debugw("Checking if drain is required for node", "node", node.Name)
+	log.Infow("Checking if drain is required for node", "node", node.Name)
 	shouldDrain := false // setting the default drain response to false
 
 	// query IMDS to get scheduled event data
@@ -124,7 +124,7 @@ func isNodeImpacted(ctx context.Context, node *v1.Node, event ScheduledEvent) (b
 	if event.ResourceType == "VirtualMachine" {
 		for _, value := range event.Resources {
 			if value == instance || strings.Contains(value, instance) {
-				log.Debugw("Node is impacted by event", "node", node.Name, "event", event.EventId)
+				log.Infow("Node is impacted by event", "node", node.Name, "event", event.EventId)
 				return true, nil
 			}
 		}
@@ -150,9 +150,9 @@ func getInstanceName(ctx context.Context, node *v1.Node) (string, error) {
 		return "", err
 	}
 
-	log.Debugw("Decoded node name to resolve VMSS instance number", "instanceName", instanceName, "decoded", decoded)
-	log.Debugw("Returning generated VMSS resource name", "vm", vm, "instance", decoded)
-	return fmt.Sprintf("%s_%d", vm, decoded), nil
+	decodedInstanceName := fmt.Sprintf("%s_%d", vm, decoded)
+	log.Debugw("Decoded node name to resolve VMSS instance number", "instanceName", decodedInstanceName, "nodeName", node.Name)
+	return decodedInstanceName, nil
 }
 
 // QueryIMDS queries the Instance Metadata Service (IMDS) for scheduled events.
@@ -160,7 +160,7 @@ func getInstanceName(ctx context.Context, node *v1.Node) (string, error) {
 func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, error) {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
-	log.Debug("Querying IMDS")
+	log.Debug("Querying IMDS for scheduled event data")
 
 	// query IMDS for scheduled events
 	var eventResponse ScheduledEventsResponse
@@ -184,7 +184,7 @@ func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, er
 	defer resp.Body.Close()
 
 	var generic map[string]interface{}
-	log.Debugw("IMDS response", "status", resp.Status, "json", resp.Body)
+	log.Debugw("IMDS response", "status", resp.Status)
 	if err := json.NewDecoder(resp.Body).Decode(&generic); err != nil {
 		log.Errorw("Failed to decode IMDS response", "error", err)
 		return ScheduledEventsResponse{}, err
@@ -222,12 +222,16 @@ func buildEventResponse(ctx context.Context, generic map[string]interface{}, eve
 		}
 
 		// handle time and duration parsing
-		parsed, err := time.Parse("Mon, 02 Jan 2006 15:04:05 GMT", eventMap["NotBefore"].(string))
-		if err != nil {
-			log.Warnw("Failed to parse NotBefore time", "error", err)
+		if eventMap["NotBefore"] != nil || eventMap["DurationInSeconds"] != "" {
+			parsed, err := time.Parse("Mon, 02 Jan 2006 15:04:05 GMT", eventMap["NotBefore"].(string))
+			if err != nil {
+				log.Warnw("Failed to parse NotBefore time", "error", err)
+			}
+			event.NotBefore = parsed
+			event.Duration = time.Duration(eventMap["DurationInSeconds"].(float64)) * time.Second
+		} else {
+			log.Debug("No NotBefore or DurationInSeconds found in event details from IMDS")
 		}
-		event.NotBefore = parsed
-		event.Duration = time.Duration(eventMap["DurationInSeconds"].(float64)) * time.Second
 
 		log.Debugw("Adding parsed event to event slice", "event", event)
 

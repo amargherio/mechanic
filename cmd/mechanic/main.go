@@ -106,7 +106,7 @@ func main() {
 
 			state.HasEventScheduled = checkNodeConditions(ctx, node)
 
-			log.Debugw("Finished checking node conditions and current state.", "node", node.Name, "state", state)
+			log.Infow("Finished checking node conditions and current state.", "node", node.Name, "state", state)
 
 			if state.HasEventScheduled {
 				// query IMDS for more information on the scheduled event
@@ -119,20 +119,20 @@ func main() {
 
 				if state.ShouldDrain {
 					// cordon the node, then drain
-					log.Infow("A drain has been determined as appropriate for the node", "node", node.Name)
+					log.Infow("A drain has been determined as appropriate for the node", "node", node.Name, "state", state)
 
 					// check state and attempt to cordon if required
 					if state.IsCordoned {
 						log.Infow("Node is already cordoned, skipping cordon", "node", node.Name)
 						recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s is already cordoned, no need to attempt a cordon.", node.Name)
 					} else {
-						err := n.CordonNode(ctx, clientset, node, &state)
+						b, err := n.CordonNode(ctx, clientset, node, &state)
 						if err != nil {
 							log.Errorw("Failed to cordon node", "node", node.Name, "error", err)
 							recorder.Eventf(node, v1.EventTypeWarning, "CordonNode", "Failed to cordon node %s", node.Name)
 						} else {
-							state.IsCordoned = true
-							log.Infow("Node cordoned", "node", node.Name)
+							state.IsCordoned = b
+							log.Infow("Node cordoned", "node", node.Name, "state", state)
 							recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s cordoned by mechanic", node.Name)
 						}
 					}
@@ -140,22 +140,21 @@ func main() {
 					if state.IsDrained {
 						log.Infow("Node is already drained, skipping drain", "node", node.Name)
 					} else {
-						err := n.DrainNode(ctx, clientset, node, &state)
+						b, err := n.DrainNode(ctx, clientset, node)
 						if err != nil {
 							log.Errorw("Failed to drain node", "node", node.Name, "error", err)
 							recorder.Eventf(node, v1.EventTypeWarning, "DrainNode", "Failed to drain node %s", node.Name)
 						} else {
-							state.IsDrained = true
-							log.Infow("Node drained", "node", node.Name)
+							state.IsDrained = b
+							log.Infow("Node drain completed", "node", node.Name, "state", state)
 							recorder.Eventf(node, v1.EventTypeNormal, "DrainNode", "Node %s drained by mechanic", node.Name)
 						}
 					}
 				}
-				checkForUnneededCordon(ctx, clientset, node, recorder, &state)
-			} else {
-				// if we don't have an event scheduled, check if we need to uncordon the node
-				checkForUnneededCordon(ctx, clientset, node, recorder, &state)
 			}
+			// finished the event checking, cordon, and drain logic. checking for
+			log.Infow("Checking for unneeded cordon", "node", node.Name, "state", state)
+			checkForUnneededCordon(ctx, clientset, node, recorder, &state)
 		},
 	})
 
@@ -182,7 +181,7 @@ func checkNodeConditions(ctx context.Context, node *v1.Node) bool {
 	resp := false
 	conditions := node.Status.Conditions
 	for _, condition := range conditions {
-		if resp == true {
+		if resp {
 			break
 		} else {
 			if condition.Type == "VMEventScheduled" {
@@ -190,7 +189,7 @@ func checkNodeConditions(ctx context.Context, node *v1.Node) bool {
 				// remove the cordon if we're the ones who cordoned it
 				switch condition.Status {
 				case "True":
-					log.Infow("Node has an upcoming scheduled event. Querying IMDS to determine if a drain is required",
+					log.Infow("Node has an upcoming scheduled event. Flagging for impact assessment.",
 						"node", node.Name,
 						"lastTransitionTime", condition.LastTransitionTime,
 						"reason", condition.Reason,

@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/kubectl/pkg/drain"
+	"strings"
 )
 
 // temp type for wrapping the zap logger to be io.Writer compatible
@@ -21,6 +22,12 @@ type logger struct {
 }
 
 func (l *logger) Write(p []byte) (n int, err error) {
+	msg := string(p)
+
+	if strings.HasPrefix("WARNING", msg) {
+		l.log.Warn(string(p))
+		return len(p), nil
+	}
 	if l.level == "error" {
 		l.log.Error(string(p))
 		return len(p), nil
@@ -29,7 +36,7 @@ func (l *logger) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, state *appstate.State) error {
+func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, state *appstate.State) (bool, error) {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
@@ -47,7 +54,7 @@ func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.No
 			}
 		}
 		log.Infow("Node is already cordoned", "node", node.Name, "state", state.IsCordoned)
-		return nil
+		return true, nil
 	}
 
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -58,42 +65,39 @@ func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.No
 
 		// update the labels to show mechanic cordoned the node and cordon the node
 		n.Spec.Unschedulable = true
-		log.Debugw("Unschedulable set to true on node object")
-
 		labels := n.GetLabels()
 		labels["mechanic.cordoned"] = "true"
 		n.SetLabels(labels)
-		log.Debugw("Labels updated on node object with mechanic.cordoned label")
+		log.Debugw("Node object updated with unschedulable set to true and mechanic.cordoned label")
 
 		_, err = clientset.CoreV1().Nodes().Update(ctx, n, metav1.UpdateOptions{})
 		return err
 	})
 	if retryErr != nil {
 		log.Warnw("Failed to cordon node - retry error encountered", "node", node.Name, "error", retryErr)
-		return retryErr
+		return false, retryErr
 	}
 
 	res_node, err := clientset.CoreV1().Nodes().Get(ctx, node.Name, metav1.GetOptions{})
 	if err != nil {
 		log.Warnw("Failed to get node after cordon - returning without updating state", "node", node.Name, "error", err)
-		return err
+		return false, err
 	}
 
 	// validate result node state
 	if !res_node.Spec.Unschedulable {
 		log.Errorw("Node was not cordoned", "node", node.Name)
-		return errors.New("node was not cordoned")
+		return false, errors.New("node was not cordoned")
 	}
 
 	if res_node.GetLabels()["mechanic.cordoned"] != "true" {
 		log.Errorw("Node was not labeled as cordoned by mechanic", "node", node.Name)
-		return errors.New("node was not labeled as cordoned by mechanic")
+		return false, errors.New("node was not labeled as cordoned by mechanic")
 	}
 
 	// successfully cordoned
 	log.Infow("Node cordoned", "node", node.Name)
-	state.IsCordoned = true
-	return nil
+	return true, nil
 }
 
 func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, state *appstate.State) error {
@@ -127,7 +131,7 @@ func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.
 	return nil
 }
 
-func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, state *appstate.State) error {
+func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) (bool, error) {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
@@ -150,9 +154,8 @@ func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Nod
 	}
 
 	if err := drain.RunNodeDrain(drainHelper, node.Name); err != nil {
-		return err
+		return false, err
 	}
 
-	state.IsDrained = true
-	return nil
+	return true, nil
 }
