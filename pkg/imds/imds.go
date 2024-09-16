@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -66,8 +67,26 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) (bool, er
 	shouldDrain := false // setting the default drain response to false
 
 	// query IMDS to get scheduled event data
-	resp, err := ic.QueryIMDS(ctx)
-	if err != nil {
+	var resp ScheduledEventsResponse
+	var err error
+	maxRetries := 3
+	baseDelay := 2 * time.Second
+	maxDelay := 10 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		resp, err = ic.QueryIMDS(ctx)
+		if err == nil {
+			break
+		}
+		if err == io.EOF {
+			delay := baseDelay * (1 << i) // exponential backoff
+			if delay > maxDelay {
+				delay = maxDelay
+			}
+			log.Warnw("Received io.EOF error, retrying...", "attempt", i+1, "delay", delay)
+			time.Sleep(delay)
+			continue
+		}
 		log.Errorw("Failed to query IMDS", "error", err)
 		return shouldDrain, err
 	}
@@ -183,12 +202,13 @@ func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, er
 
 	defer resp.Body.Close()
 
+	// decode the JSON response and handle an EOF response
 	var generic map[string]interface{}
-	log.Debugw("IMDS response", "status", resp.Status)
 	if err := json.NewDecoder(resp.Body).Decode(&generic); err != nil {
 		log.Errorw("Failed to decode IMDS response", "error", err)
 		return ScheduledEventsResponse{}, err
 	}
+	log.Debugw("IMDS response", "status", resp.Status, "json", generic)
 
 	eventResponse = ScheduledEventsResponse{}
 	buildEventResponse(ctx, generic, &eventResponse)
