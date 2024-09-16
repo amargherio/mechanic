@@ -78,7 +78,10 @@ func TestCordonNode(t *testing.T) {
 
 			clientset := fake.NewClientset(node)
 			// create the node in the fake clientset
-			clientset.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+			_, err := clientset.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+			if err != nil {
+				t.Errorf("Error creating node: %v", err)
+			}
 
 			state := appstate.State{
 				HasEventScheduled: false,
@@ -358,7 +361,10 @@ func TestValidateCordon(t *testing.T) {
 			tc.prepNodeFunc(node)
 			clientset := fake.NewClientset(node)
 
-			clientset.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+			_, err := clientset.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+			if err != nil {
+				t.Errorf("Error creating node: %v", err)
+			}
 
 			ValidateCordon(ctx, clientset, node, recorder, &tc.inputState)
 			updatedNode, _ := clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
@@ -392,7 +398,6 @@ func TestCheckNodeConditions(t *testing.T) {
 		{
 			name: "node has no VMScheduledEvent",
 			prepNodeFunc: func(n *v1.Node) {
-				return
 			},
 			expectedResponse: false,
 		},
@@ -408,7 +413,8 @@ func TestCheckNodeConditions(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			vals := config.ContextValues{
 				Logger: log,
-				State:  &appstate.State{false, false, false, false},
+				State: &appstate.State{
+					HasEventScheduled: false, IsCordoned: false, ShouldDrain: false, IsDrained: false},
 			}
 			ctx := context.WithValue(context.Background(), "values", vals)
 
