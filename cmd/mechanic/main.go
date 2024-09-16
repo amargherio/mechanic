@@ -104,17 +104,23 @@ func main() {
 			node := new.(*v1.Node)
 			log.Infow("Node updated, checking for updated conditions", "node", node.Name)
 
-			state.HasEventScheduled = checkNodeConditions(ctx, node)
+			state.HasEventScheduled = n.CheckNodeConditions(ctx, node)
 
 			log.Infow("Finished checking node conditions and current state.", "node", node.Name, "state", state)
 
 			if state.HasEventScheduled {
+				// early return if the node is already cordoned and drained
+				if state.IsCordoned && state.IsDrained {
+					log.Infow("Node is already cordoned and drained, no action required", "node", node.Name, "state", state)
+					return
+				}
+
 				// query IMDS for more information on the scheduled event
 				b, err := imds.CheckIfDrainRequired(ctx, ic, node)
 				if err != nil {
-					log.Errorw("Failed to query IMDS for scheduled event information", "error", err)
+					log.Errorw("Failed to query IMDS for scheduled event information. Unable to determine if drain is required.", "error", err, "state", state)
+					return
 				}
-
 				state.ShouldDrain = b
 
 				if state.ShouldDrain {
@@ -154,7 +160,7 @@ func main() {
 			}
 			// finished the event checking, cordon, and drain logic. checking for
 			log.Infow("Checking for unneeded cordon", "node", node.Name, "state", state)
-			checkForUnneededCordon(ctx, clientset, node, recorder, &state)
+			n.ValidateCordon(ctx, clientset, node, recorder, &state)
 		},
 	})
 
@@ -172,79 +178,4 @@ func main() {
 
 	// block main process
 	<-stop
-}
-
-func checkNodeConditions(ctx context.Context, node *v1.Node) bool {
-	vals := ctx.Value("values").(config.ContextValues)
-	log := vals.Logger
-
-	resp := false
-	conditions := node.Status.Conditions
-	for _, condition := range conditions {
-		if resp {
-			break
-		} else {
-			if condition.Type == "VMEventScheduled" {
-				// check the status of the condition. if it's true, update state.HasEventScheduled to true. if it's false, reset it to false and
-				// remove the cordon if we're the ones who cordoned it
-				switch condition.Status {
-				case "True":
-					log.Infow("Node has an upcoming scheduled event. Flagging for impact assessment.",
-						"node", node.Name,
-						"lastTransitionTime", condition.LastTransitionTime,
-						"reason", condition.Reason,
-						"message", condition.Message)
-					resp = true
-				case "False":
-					log.Infow("Node has no upcoming scheduled events", "node", node.Name)
-					resp = false
-				}
-				break
-			}
-		}
-	}
-	return resp
-}
-
-func checkForUnneededCordon(ctx context.Context, clientset *kubernetes.Clientset, node *v1.Node, recorder record.EventRecorderLogger, state *appstate.State) {
-	vals := ctx.Value("values").(config.ContextValues)
-	log := vals.Logger
-
-	if state.IsCordoned || node.Spec.Unschedulable {
-		// if our state shows cordoned but the node isn't unschedulable, update the state and remove labels if required
-		if !node.Spec.Unschedulable {
-			log.Infow("Node was not cordoned, state is out of sync. Updating the state and removing labels",
-				"node", node.Name,
-				"state", state,
-			)
-			state.IsCordoned = false
-			if _, ok := node.Labels["mechanic.cordoned"]; ok {
-				delete(node.Labels, "mechanic.cordoned")
-				_, err := clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
-				if err != nil {
-					log.Errorw("Failed to update node labels", "node", node.Name, "error", err)
-					recorder.Eventf(node, v1.EventTypeWarning, "UpdateNodeLabels", "Failed to update labels on node %s", node.Name)
-				} else {
-					log.Infow("Node labels updated", "node", node.Name)
-					recorder.Eventf(node, v1.EventTypeNormal, "UpdateNodeLabels", "Node %s labels updated by mechanic", node.Name)
-				}
-			}
-		} else {
-			// the node is cordoned, so check for our label and if we don't need to cordon it anymore, remove the label and uncordon
-			if _, ok := node.Labels["mechanic.cordoned"]; ok {
-				log.Infow("Node is cordoned by mechanic but no scheduled events found. Uncordoning node and removing the label", "node", node.Name)
-
-				err := n.UncordonNode(ctx, clientset, node, state)
-				if err != nil {
-					log.Errorw("Failed to uncordon node", "node", node.Name, "error", err)
-					recorder.Eventf(node, v1.EventTypeWarning, "UncordonNode", "Failed to uncordon node %s", node.Name)
-				} else {
-					log.Infow("Node uncordoned", "node", node.Name)
-					recorder.Eventf(node, v1.EventTypeNormal, "UncordonNode", "Node %s uncordoned by mechanic", node.Name)
-				}
-			} else {
-				log.Infow("Node is cordoned but does not have the mechanic label - no action required to uncordon", "node", node.Name)
-			}
-		}
-	}
 }

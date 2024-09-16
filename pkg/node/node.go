@@ -9,6 +9,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/kubectl/pkg/drain"
 	"strings"
@@ -158,4 +159,139 @@ func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Nod
 	}
 
 	return true, nil
+}
+
+func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, recorder record.EventRecorder, state *appstate.State) {
+	vals := ctx.Value("values").(config.ContextValues)
+	log := vals.Logger
+
+	// potential node states:
+	// - cordoned and mechanic labeled: we own the cordon as far as we know, so we can manage it
+	// - cordoned but not mechanic labeled: we don't own the cordon, so we can't manage it
+	// - not cordoned but mechanic labeled: we own the cordon but the node is no longer cordoned, so we need to validate
+	// - not cordoned and not mechanic labeled: BAU, no action required
+	// - node is cordoned but out state is not in sync: we need to reconcile the state
+	// - node is not cordoned but our state is: we need to reconcile the state
+
+	// checking if we have a scheduled event. if we do, we should make sure node and app state is in sync
+	if state.HasEventScheduled {
+		if state.IsCordoned && !node.Spec.Unschedulable {
+			log.Debugw("Node has an upcoming event scheduled, state shows cordoned but node is not. Cordon the node.", "node", node.Name, "state", state)
+			_, err := CordonNode(ctx, clientset, node, state)
+			if err != nil {
+				log.Errorw("Failed to cordon node", "node", node.Name, "error", err)
+				recorder.Eventf(node, v1.EventTypeWarning, "CordonNode", "Failed to cordon node %s", node.Name)
+			} else {
+				log.Infow("Node cordoned", "node", node.Name)
+				recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s cordoned by mechanic", node.Name)
+			}
+		} else if !state.IsCordoned && node.Spec.Unschedulable {
+			log.Debugw("Node has an upcoming event scheduled, state shows not cordoned but node is. Update state to reflect actual configuration.", "node", node.Name, "state", state)
+			state.IsCordoned = true
+		} else {
+			log.Debugw("No need to check for unneeded cordon, event is scheduled", "node", node.Name, "state", state)
+		}
+
+		return
+	}
+
+	// we don't have an upcoming event, so check if it's cordoned or not
+	if state.IsCordoned {
+		// did we cordon it? if so, our label should be there and we can uncordon. if the label is missing, we don't touch
+		// the cordon because we can't guarantee we're the ones that cordoned it
+		if _, ok := node.Labels["mechanic.cordoned"]; ok {
+			log.Infow("Node is cordoned by mechanic but no scheduled events found. Uncordoning node and removing the label", "node", node.Name)
+
+			err := UncordonNode(ctx, clientset, node, state)
+			if err != nil {
+				log.Errorw("Failed to uncordon node", "node", node.Name, "error", err)
+				recorder.Eventf(node, v1.EventTypeWarning, "UncordonNode", "Failed to uncordon node %s", node.Name)
+			} else {
+				log.Infow("Node uncordoned", "node", node.Name)
+				recorder.Eventf(node, v1.EventTypeNormal, "UncordonNode", "Node %s uncordoned by mechanic", node.Name)
+				state.IsCordoned = false
+			}
+		} else {
+			log.Infow("Node is cordoned but does not have the mechanic label - no action required to uncordon", "node", node.Name)
+		}
+	} else {
+		// our state shows it's not cordoned, so we should check if state is out of sync and reconcile
+		if node.Spec.Unschedulable {
+			if _, ok := node.Labels["mechanic.cordoned"]; ok {
+				log.Warnw("Node is cordoned but our state shows it's not. No upcoming events so uncordoning the node and removing the label", "node", node.Name)
+				err := UncordonNode(ctx, clientset, node, state)
+				if err != nil {
+					log.Errorw("Failed to uncordon node", "node", node.Name, "error", err)
+					recorder.Eventf(node, v1.EventTypeWarning, "UncordonNode", "Failed to uncordon node %s", node.Name)
+				} else {
+					log.Infow("Node uncordoned", "node", node.Name)
+					recorder.Eventf(node, v1.EventTypeNormal, "UncordonNode", "Node %s uncordoned by mechanic", node.Name)
+					state.IsCordoned = false
+					removeMechanicCordonLabel(ctx, node, clientset)
+				}
+			} else {
+				log.Infow("Node is cordoned but no mechanic label found - no action required", "node", node.Name)
+			}
+		}
+	}
+
+	// at this point we've either left the node cordoned because we didn't cordon it or we've released our cordon.
+	// clean up the app state and return
+	state.IsDrained = false
+	state.ShouldDrain = false
+}
+
+func CheckNodeConditions(ctx context.Context, node *v1.Node) bool {
+	vals := ctx.Value("values").(config.ContextValues)
+	log := vals.Logger
+
+	resp := false
+	conditions := node.Status.Conditions
+	for _, condition := range conditions {
+		if resp {
+			break
+		} else {
+			if condition.Type == "VMEventScheduled" {
+				// check the status of the condition. if it's true, update state.HasEventScheduled to true. if it's false, reset it to false and
+				// remove the cordon if we're the ones who cordoned it
+				switch condition.Status {
+				case "True":
+					log.Infow("Node has an upcoming scheduled event. Flagging for impact assessment.",
+						"node", node.Name,
+						"lastTransitionTime", condition.LastTransitionTime,
+						"reason", condition.Reason,
+						"message", condition.Message)
+					resp = true
+				case "False":
+					log.Infow("Node has no upcoming scheduled events", "node", node.Name)
+					resp = false
+				}
+				break
+			}
+		}
+	}
+	return resp
+}
+
+func removeMechanicCordonLabel(ctx context.Context, node *v1.Node, clientset kubernetes.Interface) {
+	vals := ctx.Value("values").(config.ContextValues)
+	log := vals.Logger
+
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		n, err := clientset.CoreV1().Nodes().Get(ctx, node.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		labels := n.GetLabels()
+		delete(labels, "mechanic.cordoned")
+		n.SetLabels(labels)
+
+		_, err = clientset.CoreV1().Nodes().Update(ctx, n, metav1.UpdateOptions{})
+		return err
+	})
+	if retryErr != nil {
+		log.Warnw("Failed to remove mechanic label from node - retry error encountered", "node", node.Name, "error", retryErr)
+	}
+	log.Debugw("Mechanic label removed from node", "node", node.Name)
 }
