@@ -76,7 +76,7 @@ func TestCordonNode(t *testing.T) {
 			}
 			tc.prepNodeFunc(node)
 
-			clientset := fake.NewClientset(node)
+			clientset := fake.NewClientset()
 			// create the node in the fake clientset
 			_, err := clientset.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
 			if err != nil {
@@ -107,6 +107,12 @@ func TestCordonNode(t *testing.T) {
 
 			assert.Equal(t, tc.expectedCordon, updatedNode.Spec.Unschedulable, "Expected node.Spec.Unschedulable to be %v, got %v", tc.expectedCordon, updatedNode.Spec.Unschedulable)
 			assert.Equal(t, tc.expectedCordon, state.IsCordoned, "Expected state.IsCordoned to be %v, got %v", tc.expectedCordon, state.IsCordoned)
+
+			// clean up and prep for next test
+			err = clientset.CoreV1().Nodes().Delete(ctx, nodeName, metav1.DeleteOptions{})
+			if err != nil {
+				return
+			}
 		})
 	}
 }
@@ -133,14 +139,6 @@ func TestDrainNode(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		node := &v1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   nodeName,
-				Labels: make(map[string]string),
-			},
-		}
-		clientset := fake.NewClientset(node)
-
 		t.Run(tc.name, func(t *testing.T) {
 			state := appstate.State{
 				HasEventScheduled: true,
@@ -148,6 +146,14 @@ func TestDrainNode(t *testing.T) {
 				IsDrained:         false,
 				ShouldDrain:       true,
 			}
+
+			node := &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   nodeName,
+					Labels: make(map[string]string),
+				},
+			}
+			clientset := fake.NewClientset(node)
 
 			vals := config.ContextValues{
 				Logger: sugar,
@@ -359,7 +365,7 @@ func TestValidateCordon(t *testing.T) {
 				Spec: v1.NodeSpec{Unschedulable: false},
 			}
 			tc.prepNodeFunc(node)
-			clientset := fake.NewClientset(node)
+			clientset := fake.NewClientset()
 
 			_, err := clientset.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
 			if err != nil {
@@ -371,6 +377,9 @@ func TestValidateCordon(t *testing.T) {
 
 			assert.Equal(t, tc.expectedState, tc.inputState, "Expected state to be %v, got %v", tc.expectedState, tc.inputState)
 			assert.Equal(t, tc.expectedNode.Spec.Unschedulable, updatedNode.Spec.Unschedulable, "Expected node.Spec.Unschedulable to be %v, got %v", tc.expectedNode.Spec.Unschedulable, updatedNode.Spec.Unschedulable)
+
+			// clean up and prep for next test
+			clientset.CoreV1().Nodes().Delete(ctx, nodeName, metav1.DeleteOptions{})
 		})
 	}
 }
