@@ -97,7 +97,7 @@ func TestCordonNode(t *testing.T) {
 
 			ctx := context.WithValue(context.Background(), "values", vals)
 
-			cordoned, err := CordonNode(ctx, clientset, node, &state)
+			cordoned, err := CordonNode(ctx, clientset, node)
 			if (err != nil) != tc.expectError {
 				t.Errorf("CordonNode() error = %v, expectError %v", err, tc.expectError)
 				return
@@ -181,20 +181,20 @@ func TestValidateCordon(t *testing.T) {
 	tests := []struct {
 		name          string
 		prepNodeFunc  func(*v1.Node)
-		expectedState appstate.State
+		expectedState *appstate.State
 		expectedNode  *v1.Node
-		inputState    appstate.State
+		inputState    *appstate.State
 	}{
 		{
 			name: "node cordoned, state uncordoned, upcoming event",
 			prepNodeFunc: func(n *v1.Node) {
 				n.Spec.Unschedulable = true
 			},
-			inputState: appstate.State{
+			inputState: &appstate.State{
 				HasEventScheduled: true,
 				IsCordoned:        false,
 			},
-			expectedState: appstate.State{
+			expectedState: &appstate.State{
 				HasEventScheduled: true,
 				IsCordoned:        true,
 			},
@@ -210,11 +210,11 @@ func TestValidateCordon(t *testing.T) {
 			prepNodeFunc: func(node *v1.Node) {
 				node.Spec.Unschedulable = false
 			},
-			inputState: appstate.State{
+			inputState: &appstate.State{
 				HasEventScheduled: true,
 				IsCordoned:        true,
 			},
-			expectedState: appstate.State{
+			expectedState: &appstate.State{
 				HasEventScheduled: true,
 				IsCordoned:        true,
 			},
@@ -230,7 +230,7 @@ func TestValidateCordon(t *testing.T) {
 			prepNodeFunc: func(node *v1.Node) {
 				node.Spec.Unschedulable = true
 			},
-			expectedState: appstate.State{
+			expectedState: &appstate.State{
 				HasEventScheduled: false,
 				IsCordoned:        false,
 			},
@@ -238,7 +238,7 @@ func TestValidateCordon(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
 				Spec:       v1.NodeSpec{Unschedulable: true},
 			},
-			inputState: appstate.State{
+			inputState: &appstate.State{
 				HasEventScheduled: false,
 				IsCordoned:        false,
 			},
@@ -249,7 +249,7 @@ func TestValidateCordon(t *testing.T) {
 				node.ObjectMeta.Labels["mechanic.cordoned"] = "true"
 				node.Spec.Unschedulable = true
 			},
-			expectedState: appstate.State{
+			expectedState: &appstate.State{
 				HasEventScheduled: false,
 				IsCordoned:        false,
 			},
@@ -257,7 +257,7 @@ func TestValidateCordon(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
 				Spec:       v1.NodeSpec{Unschedulable: false},
 			},
-			inputState: appstate.State{
+			inputState: &appstate.State{
 				HasEventScheduled: false,
 				IsCordoned:        false,
 			},
@@ -268,11 +268,11 @@ func TestValidateCordon(t *testing.T) {
 				node.ObjectMeta.Labels["mechanic.cordoned"] = "true"
 				node.Spec.Unschedulable = false
 			},
-			inputState: appstate.State{
+			inputState: &appstate.State{
 				HasEventScheduled: false,
 				IsCordoned:        true,
 			},
-			expectedState: appstate.State{
+			expectedState: &appstate.State{
 				HasEventScheduled: false,
 				IsCordoned:        false,
 			},
@@ -286,11 +286,11 @@ func TestValidateCordon(t *testing.T) {
 			prepNodeFunc: func(node *v1.Node) {
 				node.Spec.Unschedulable = false
 			},
-			inputState: appstate.State{
+			inputState: &appstate.State{
 				HasEventScheduled: false,
 				IsCordoned:        false,
 			},
-			expectedState: appstate.State{
+			expectedState: &appstate.State{
 				HasEventScheduled: false,
 				IsCordoned:        false,
 			},
@@ -305,11 +305,11 @@ func TestValidateCordon(t *testing.T) {
 				node.ObjectMeta.Labels["mechanic.cordoned"] = "true"
 				node.Spec.Unschedulable = true
 			},
-			inputState: appstate.State{
+			inputState: &appstate.State{
 				HasEventScheduled: false,
 				IsCordoned:        true,
 			},
-			expectedState: appstate.State{
+			expectedState: &appstate.State{
 				HasEventScheduled: false,
 				IsCordoned:        false,
 			},
@@ -326,13 +326,13 @@ func TestValidateCordon(t *testing.T) {
 				node.ObjectMeta.Labels["mechanic.cordoned"] = "true"
 				node.Spec.Unschedulable = false
 			},
-			inputState: appstate.State{
+			inputState: &appstate.State{
 				HasEventScheduled: false,
 				IsCordoned:        true,
 				IsDrained:         true,
 				ShouldDrain:       true,
 			},
-			expectedState: appstate.State{
+			expectedState: &appstate.State{
 				HasEventScheduled: false,
 				IsCordoned:        false,
 				IsDrained:         false,
@@ -351,7 +351,7 @@ func TestValidateCordon(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			vals := config.ContextValues{
 				Logger: log,
-				State:  &tc.inputState,
+				State:  tc.inputState,
 			}
 
 			ctx := context.WithValue(context.Background(), "values", vals)
@@ -372,14 +372,14 @@ func TestValidateCordon(t *testing.T) {
 				t.Errorf("Error creating node: %v", err)
 			}
 
-			ValidateCordon(ctx, clientset, node, recorder, &tc.inputState)
+			ValidateCordon(ctx, clientset, node, recorder)
 			updatedNode, _ := clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 
-			assert.Equal(t, tc.expectedState, tc.inputState, "Expected state to be %v, got %v", tc.expectedState, tc.inputState)
+			assert.Equal(t, &tc.expectedState, &tc.inputState, "Expected state to be %v, got %v", &tc.expectedState, &tc.inputState)
 			assert.Equal(t, tc.expectedNode.Spec.Unschedulable, updatedNode.Spec.Unschedulable, "Expected node.Spec.Unschedulable to be %v, got %v", tc.expectedNode.Spec.Unschedulable, updatedNode.Spec.Unschedulable)
 
 			// clean up and prep for next test
-			clientset.CoreV1().Nodes().Delete(ctx, nodeName, metav1.DeleteOptions{})
+			_ = clientset.CoreV1().Nodes().Delete(ctx, nodeName, metav1.DeleteOptions{})
 		})
 	}
 }

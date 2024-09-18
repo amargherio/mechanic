@@ -3,7 +3,6 @@ package node
 import (
 	"context"
 	"errors"
-	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/amargherio/mechanic/internal/config"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
@@ -37,24 +36,24 @@ func (l *logger) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, state *appstate.State) (bool, error) {
+func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) (bool, error) {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
 	// check if our node is cordoned, which throws our app state out of sync
 	if node.Spec.Unschedulable {
-		if !state.IsCordoned {
+		if !vals.State.IsCordoned {
 			// the node is unschedulable but our state is not in sync - check if we did it, and reconcile cordoned state.
 			if _, ok := node.GetLabels()["mechanic.cordoned"]; ok {
-				state.IsCordoned = true
+				vals.State.IsCordoned = true
 				log.Warnw("Node is cordoned, but our state is not in sync. Reconciling state.")
 			} else {
 				log.Infow("Node is cordoned, but we aren't responsible for the cordon.", "node", node.Name)
 				// we could still benefit from the cordon and don't need to cordon again, so sync state
-				state.IsCordoned = true
+				vals.State.IsCordoned = true
 			}
 		}
-		log.Infow("Node is already cordoned", "node", node.Name, "state", state.IsCordoned)
+		log.Infow("Node is already cordoned", "node", node.Name, "state", vals.State.IsCordoned)
 		return true, nil
 	}
 
@@ -101,7 +100,7 @@ func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.No
 	return true, nil
 }
 
-func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, state *appstate.State) error {
+func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
@@ -128,7 +127,7 @@ func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.
 		return retryErr
 	}
 
-	state.IsCordoned = false
+	vals.State.IsCordoned = false
 	return nil
 }
 
@@ -164,7 +163,6 @@ func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Nod
 func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, recorder record.EventRecorder) {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
-	state := vals.State
 
 	// potential node states:
 	// - cordoned and mechanic labeled: we own the cordon as far as we know, so we can manage it
@@ -175,60 +173,61 @@ func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v
 	// - node is not cordoned but our state is: we need to reconcile the state
 
 	// checking if we have a scheduled event. if we do, we should make sure node and app state is in sync
-	if state.HasEventScheduled {
-		if state.IsCordoned && !node.Spec.Unschedulable {
-			log.Debugw("Node has an upcoming event scheduled, state shows cordoned but node is not. Cordon the node.", "node", node.Name, "state", state)
-			_, err := CordonNode(ctx, clientset, node, state)
+	if vals.State.HasEventScheduled {
+		if vals.State.IsCordoned && !node.Spec.Unschedulable {
+			log.Debugw("Node has an upcoming event scheduled, state shows cordoned but node is not. Cordon the node.", "node", node.Name, "state", vals.State)
+			isCordoned, err := CordonNode(ctx, clientset, node)
 			if err != nil {
 				log.Errorw("Failed to cordon node", "node", node.Name, "error", err)
 				recorder.Eventf(node, v1.EventTypeWarning, "CordonNode", "Failed to cordon node %s", node.Name)
 			} else {
 				log.Infow("Node cordoned", "node", node.Name)
 				recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s cordoned by mechanic", node.Name)
+				vals.State.IsCordoned = isCordoned
 			}
-		} else if !state.IsCordoned && node.Spec.Unschedulable {
-			log.Debugw("Node has an upcoming event scheduled, state shows not cordoned but node is. Update state to reflect actual configuration.", "node", node.Name, "state", state)
-			state.IsCordoned = true
+		} else if !vals.State.IsCordoned && node.Spec.Unschedulable {
+			log.Debugw("Node has an upcoming event scheduled, state shows not cordoned but node is. Update state to reflect actual configuration.", "node", node.Name, "state", vals.State)
+			vals.State.IsCordoned = true
 		} else {
-			log.Debugw("No need to check for unneeded cordon, event is scheduled", "node", node.Name, "state", state)
+			log.Debugw("No need to check for unneeded cordon, event is scheduled", "node", node.Name, "state", vals.State)
 		}
 
 		return
 	}
 
 	// we don't have an upcoming event, so check if it's cordoned or not
-	if state.IsCordoned {
+	if vals.State.IsCordoned {
 		// did we cordon it? if so, our label should be there and we can uncordon. if the label is missing, we don't touch
 		// the cordon because we can't guarantee we're the ones that cordoned it
 		if _, ok := node.Labels["mechanic.cordoned"]; ok {
 			log.Infow("Node is cordoned by mechanic but no scheduled events found. Uncordoning node and removing the label", "node", node.Name)
 
-			err := UncordonNode(ctx, clientset, node, state)
+			err := UncordonNode(ctx, clientset, node)
 			if err != nil {
 				log.Errorw("Failed to uncordon node", "node", node.Name, "error", err)
 				recorder.Eventf(node, v1.EventTypeWarning, "UncordonNode", "Failed to uncordon node %s", node.Name)
 			} else {
 				log.Infow("Node uncordoned", "node", node.Name)
 				recorder.Eventf(node, v1.EventTypeNormal, "UncordonNode", "Node %s uncordoned by mechanic", node.Name)
-				state.IsCordoned = false
+				vals.State.IsCordoned = false
 			}
 		} else {
-			log.Infow("Node is cordoned but does not have the mechanic label - no action required to uncordon", "node", node.Name)
-			state.IsCordoned = true
+			vals.State.IsCordoned = true
+			log.Infow("Node is cordoned but does not have the mechanic label - no action required to uncordon", "node", node.Name, "state", vals.State)
 		}
 	} else {
 		// our state shows it's not cordoned, so we should check if state is out of sync and reconcile
 		if node.Spec.Unschedulable {
 			if _, ok := node.Labels["mechanic.cordoned"]; ok {
 				log.Warnw("Node is cordoned but our state shows it's not. No upcoming events so uncordoning the node and removing the label", "node", node.Name)
-				err := UncordonNode(ctx, clientset, node, state)
+				err := UncordonNode(ctx, clientset, node)
 				if err != nil {
 					log.Errorw("Failed to uncordon node", "node", node.Name, "error", err)
 					recorder.Eventf(node, v1.EventTypeWarning, "UncordonNode", "Failed to uncordon node %s", node.Name)
 				} else {
 					log.Infow("Node uncordoned", "node", node.Name)
 					recorder.Eventf(node, v1.EventTypeNormal, "UncordonNode", "Node %s uncordoned by mechanic", node.Name)
-					state.IsCordoned = false
+					vals.State.IsCordoned = false
 					removeMechanicCordonLabel(ctx, node, clientset)
 				}
 			} else {
@@ -239,12 +238,12 @@ func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v
 
 	// at this point we've either left the node cordoned because we didn't cordon it or we've released our cordon.
 	// clean up the app state and return
-	if state.ShouldDrain {
-		state.ShouldDrain = false
+	if vals.State.ShouldDrain {
+		vals.State.ShouldDrain = false
 	}
 
-	if state.IsDrained {
-		state.IsDrained = false
+	if vals.State.IsDrained {
+		vals.State.IsDrained = false
 	}
 }
 
