@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"go.opentelemetry.io/otel"
 	"os"
 
 	"github.com/amargherio/mechanic/internal/appstate"
@@ -41,6 +42,10 @@ func main() {
 
 	defer logger.Sync()
 	log := logger.Sugar()
+
+	tracer := otel.Tracer("mechanic")
+	ctx, span := tracer.Start(context.Background(), "main")
+	defer span.End()
 
 	// continue with app startup
 	state := appstate.State{

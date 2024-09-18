@@ -2,6 +2,9 @@ package config
 
 import (
 	"context"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/spf13/viper"
 
@@ -29,9 +32,14 @@ type Config struct {
 	DrainConditions DrainConditions
 	KubeConfig      *rest.Config
 	NodeName        string
+	Span            trace.Span
 }
 
 func ReadConfiguration(ctx context.Context) (Config, error) {
+	tracer := otel.Tracer("mechanic")
+	ctx, span := tracer.Start(ctx, "ReadConfiguration")
+	defer span.End()
+
 	// grab the logger from the context
 	vals := ctx.Value("values").(ContextValues)
 	log := vals.Logger

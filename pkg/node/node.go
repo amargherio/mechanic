@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/amargherio/mechanic/internal/config"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,7 +12,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/kubectl/pkg/drain"
-	"slices"
 	"strings"
 )
 
@@ -38,6 +38,10 @@ func (l *logger) Write(p []byte) (n int, err error) {
 }
 
 func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) (bool, error) {
+	tracer := otel.Tracer("mechanic")
+	ctx, span := tracer.Start(ctx, "ReadConfiguration")
+	defer span.End()
+
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
@@ -102,6 +106,10 @@ func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.No
 }
 
 func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
+	tracer := otel.Tracer("mechanic")
+	ctx, span := tracer.Start(ctx, "ReadConfiguration")
+	defer span.End()
+
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
@@ -133,6 +141,10 @@ func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.
 }
 
 func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) (bool, error) {
+	tracer := otel.Tracer("mechanic")
+	ctx, span := tracer.Start(ctx, "ReadConfiguration")
+	defer span.End()
+
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
@@ -162,6 +174,10 @@ func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Nod
 }
 
 func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, recorder record.EventRecorder) {
+	tracer := otel.Tracer("mechanic")
+	ctx, span := tracer.Start(ctx, "ReadConfiguration")
+	defer span.End()
+
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
@@ -249,6 +265,10 @@ func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v
 }
 
 func CheckNodeConditions(ctx context.Context, node *v1.Node, drainConditions config.DrainConditions) bool {
+	tracer := otel.Tracer("mechanic")
+	ctx, span := tracer.Start(ctx, "ReadConfiguration")
+	defer span.End()
+
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
@@ -303,6 +323,10 @@ func CheckNodeConditions(ctx context.Context, node *v1.Node, drainConditions con
 }
 
 func removeMechanicCordonLabel(ctx context.Context, node *v1.Node, clientset kubernetes.Interface) {
+	tracer := otel.Tracer("mechanic")
+	ctx, span := tracer.Start(ctx, "ReadConfiguration")
+	defer span.End()
+
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 

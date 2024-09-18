@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"go.opentelemetry.io/otel"
 	"io"
 	"net/http"
 	"strconv"
@@ -60,6 +61,10 @@ type IMDSClient struct{}
 
 // CheckIfDrainRequired checks if the node should be drained based on scheduled events from IMDS.
 func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node, drainConditions *config.DrainConditions) (bool, error) {
+	tracer := otel.Tracer("mechanic")
+	ctx, span := tracer.Start(ctx, "ReadConfiguration")
+	defer span.End()
+
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
@@ -147,6 +152,10 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node, drainCond
 }
 
 func isNodeImpacted(ctx context.Context, node *v1.Node, event ScheduledEvent) (bool, error) {
+	tracer := otel.Tracer("mechanic")
+	ctx, span := tracer.Start(ctx, "ReadConfiguration")
+	defer span.End()
+
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 	log.Debugw("Checking if node is impacted by event", "node", node.Name, "event", event.EventId)
@@ -172,6 +181,10 @@ func isNodeImpacted(ctx context.Context, node *v1.Node, event ScheduledEvent) (b
 }
 
 func getInstanceName(ctx context.Context, node *v1.Node) (string, error) {
+	tracer := otel.Tracer("mechanic")
+	ctx, span := tracer.Start(ctx, "ReadConfiguration")
+	defer span.End()
+
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 	log.Debugw("Getting instance name for node", "node", node.Name)
@@ -195,6 +208,10 @@ func getInstanceName(ctx context.Context, node *v1.Node) (string, error) {
 // QueryIMDS queries the Instance Metadata Service (IMDS) for scheduled events.
 // It returns a ScheduledEventsResponse containing the events and an error if any occurred during the query.
 func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, error) {
+	tracer := otel.Tracer("mechanic")
+	ctx, span := tracer.Start(ctx, "ReadConfiguration")
+	defer span.End()
+
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 	log.Debug("Querying IMDS for scheduled event data")
@@ -235,6 +252,10 @@ func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, er
 }
 
 func buildEventResponse(ctx context.Context, generic map[string]interface{}, eventResponse *ScheduledEventsResponse) {
+	tracer := otel.Tracer("mechanic")
+	ctx, span := tracer.Start(ctx, "ReadConfiguration")
+	defer span.End()
+
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 	log.Debugw("Creating event response from IMDS response", "response", generic)
