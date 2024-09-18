@@ -161,9 +161,10 @@ func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Nod
 	return true, nil
 }
 
-func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, recorder record.EventRecorder, state *appstate.State) {
+func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, recorder record.EventRecorder) {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
+	state := vals.State
 
 	// potential node states:
 	// - cordoned and mechanic labeled: we own the cordon as far as we know, so we can manage it
@@ -213,6 +214,7 @@ func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v
 			}
 		} else {
 			log.Infow("Node is cordoned but does not have the mechanic label - no action required to uncordon", "node", node.Name)
+			state.IsCordoned = true
 		}
 	} else {
 		// our state shows it's not cordoned, so we should check if state is out of sync and reconcile
@@ -237,8 +239,13 @@ func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v
 
 	// at this point we've either left the node cordoned because we didn't cordon it or we've released our cordon.
 	// clean up the app state and return
-	state.IsDrained = false
-	state.ShouldDrain = false
+	if state.ShouldDrain {
+		state.ShouldDrain = false
+	}
+
+	if state.IsDrained {
+		state.IsDrained = false
+	}
 }
 
 func CheckNodeConditions(ctx context.Context, node *v1.Node) bool {

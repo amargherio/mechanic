@@ -173,7 +173,9 @@ func main() {
 			}
 			// finished the event checking, cordon, and drain logic. checking for
 			log.Infow("Checking for unneeded cordon", "node", node.Name, "state", state)
-			n.ValidateCordon(ctx, clientset, node, recorder, &state)
+			n.ValidateCordon(ctx, clientset, node, recorder)
+
+			log.Infow("Finished processing node update", "node", node.Name, "state", state)
 		},
 	})
 
