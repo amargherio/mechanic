@@ -101,6 +101,19 @@ func main() {
 	ni := factory.Core().V1().Nodes().Informer()
 	ni.AddEventHandler(cache.ResourceEventHandlerDetailedFuncs{
 		UpdateFunc: func(old, new interface{}) {
+			// lock the state object so we know we have it exclusively for this function
+			// if we can't get the lock, then we skip processing this node update because we're already processing another one
+			//
+			// todo: this may need cleanup - there's no reads to state outside of processing an node update but it would be good to
+			// 	 ensure that we don't end up needing a RWMutex instead.
+			didLock := state.Lock.TryLock()
+			if !didLock {
+				log.Warnw("Failed to lock state object, skipping update", "node", cfg.NodeName)
+				return
+			}
+			log.Debugw("Locked state object", "node", cfg.NodeName, "state", state)
+			defer state.Lock.Unlock()
+
 			node := new.(*v1.Node)
 			log.Infow("Node updated, checking for updated conditions", "node", node.Name)
 
