@@ -9,9 +9,11 @@ COPY . .
 RUN go build -o mechanic ./cmd/mechanic
 
 FROM $RUNTIME_IMAGE
-#FROM mcr.microsoft.com/cbl-mariner/base/core:2.0-nonroot
-#FROM mcr.microsoft.com/cbl-mariner/distroless/debug:2.0-nonroot
-#FROM mcr.microsoft.com/cbl-mariner/distroless/minimal:2.0-nonroot
+
+# Use TDNF to update the packages to latest versions
+RUN tdnf update -y \
+    && tdnf upgrade -y \
+    && tdnf clean all
 
 COPY --from=builder /usr/src/mechanic/mechanic /usr/local/bin/mechanic
 
