@@ -4,6 +4,12 @@ default:
 test:
   go test ./...
 
+test-and-lint: test
+  golangci-lint run
+
+update-mocks:
+  mockgen -destination pkg/imds/mock_imds.go -package imds -source pkg/imds/imds.go IMDS
+
 build-release:
   goreleaser --rm-dist
   # build using goreleaser
@@ -13,9 +19,6 @@ build-local-containers:
 
 generate-release-notes:
   git cliff --bump -o CHANGELOG.md
-
-test-and-lint: test
-    golangci-lint run
 
  build-images repository tag:
     (which docker || which podman) || (echo "a valid container runtime install is required to build images" && exit 1)

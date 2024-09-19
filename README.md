@@ -53,3 +53,8 @@ If the maintenance event is deemed impactful, it will cordon the node and begin 
 During the drain flow, a label is added to the node (`mechanic.cordoned`) indicating that it was cordoned by mechanic. If the daemon pod is restarted,
 it will check for this label and use it as an input on whether to uncordon the node if the `VMEventScheduled` condition is
 no longer present.
+
+## I'm interested in contributing!
+
+Great! We're always looking for contributors to help improve the project. If you're interested in contributing, please see
+the [contributing docs](./CONTRIBUTING.md) for more information on how to get started.
