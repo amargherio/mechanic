@@ -20,8 +20,9 @@ The dev environment requirements for mechanic are pretty minimal. Mechanic depen
 
 - A valid Go installation (1.22 is the current version used)
 - Docker or another container runtime for building images
+
+In addition to the two hard dependencies, optional tools that can be helpful are:
+
 - [Just](https://github.com/casey/just) for running tasks (optional, quality of life addition)
 - [Kustomize](https://kustomize.io/) for managing Kubernetes manifests and YAML generation
 - [Mockgen](https://github.com/uber-go/mock) for generating mocks for testing (required if you're adding code that requires mock updates)
-
-
