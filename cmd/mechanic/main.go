@@ -112,7 +112,10 @@ func main() {
 				return
 			}
 			log.Debugw("Locked state object", "node", cfg.NodeName, "state", &state)
-			defer state.Lock.Unlock()
+			defer func() {
+				state.Lock.Unlock()
+				log.Debugw("Unlocked state object", "node", cfg.NodeName, "state", &state)
+			}()
 
 			node := new.(*v1.Node)
 			log.Infow("Node updated, checking for updated conditions", "node", node.Name)
