@@ -32,18 +32,15 @@ can coordinate cordon and drain operations. There are some limitations at this t
 - No ARM nodes are supported. The container images for mechanic are built for amd64 architectures.
 - No Windows node support. The container images target a Linux environment.
 
-To install the DaemonSet in the cluster, you can run the following command:
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/amargherio/mechanic/main/deploy/mechanic.ds.yaml
-```
+Mechanic is offered as a base set of YAMLs that can be applied to your cluster through the use of [kustomize](https://kustomize.io/).
+For details on generating valid YAML to install the DaemonSet, see the [installation](./docs/install.md) guide.
 
 There are some caveats and items worth noting:
 
 - The DaemonSet is deployed in a custom `mechanic` namespace. This is to ensure that the DaemonSet can be managed independently
   of other resources in the cluster.
-- The DaemonSet pulls the image present in the GitHub Container Registry for this repo. If you have pull restrictions, you need to
-  make sure you've got the image pulled into a registry you're permitted to pull from.
+- The Kustomize base doesn't have a valid image URL. It's required that you build the image and push it to a registry that
+  your cluster can pull from. Once the iamge is in a registry, you can create a patch to have Kustomize update the image URL.
 - All images use a base container image of Azure Linux.
 
 ## How does it work?
@@ -56,3 +53,8 @@ If the maintenance event is deemed impactful, it will cordon the node and begin 
 During the drain flow, a label is added to the node (`mechanic.cordoned`) indicating that it was cordoned by mechanic. If the daemon pod is restarted,
 it will check for this label and use it as an input on whether to uncordon the node if the `VMEventScheduled` condition is
 no longer present.
+
+## I'm interested in contributing!
+
+Great! We're always looking for contributors to help improve the project. If you're interested in contributing, please see
+the [contributing docs](./CONTRIBUTING.md) for more information on how to get started.
