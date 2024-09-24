@@ -174,9 +174,15 @@ func main() {
 					}
 				}
 			}
-			// finished the event checking, cordon, and drain logic. checking for
+			// finished the event checking, cordon, and drain logic. checking for unneeded cordons now. grab an updated
+			// node object that should reflect all of our changes and use that for the ValidateCordon
 			log.Infow("Checking for unneeded cordon", "node", node.Name, "state", &state)
-			n.ValidateCordon(ctx, clientset, node, recorder)
+			updated, err := clientset.CoreV1().Nodes().Get(ctx, node.Name, metav1.GetOptions{})
+			if err != nil {
+				log.Errorw("Failed to get updated node object", "node", node.Name, "error", err, "state", &state)
+				return
+			}
+			n.ValidateCordon(ctx, clientset, updated, recorder)
 
 			log.Infow("Finished processing node update", "node", node.Name, "state", &state)
 		},
