@@ -11,9 +11,11 @@ RUN go build -o mechanic ./cmd/mechanic
 FROM $RUNTIME_IMAGE
 
 # Use TDNF to update the packages to latest versions
-RUN tdnf update -y \
-    && tdnf upgrade -y \
-    && tdnf clean all
+#USER root
+#RUN tdnf update -y \
+#    && tdnf upgrade -y \
+#    && tdnf clean all
+#USER nonroot
 
 COPY --from=builder /usr/src/mechanic/mechanic /usr/local/bin/mechanic
 
