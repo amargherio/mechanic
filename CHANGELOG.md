@@ -2,6 +2,54 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2024-09-24
+
+### 🚀 Features
+
+- Emit kubernetes events for node operations
+- Add logic to sync the node state with mechanic internal state on start
+
+### 🐛 Bug Fixes
+
+- *(test)* Fixing test failures related to changes to context values
+- Fixing a missed logger call in config
+- Imds updates to fix document incarnation parsing
+- Updates to DocumentIncarnation type in ScheduledEventResponse
+- Corrected error when casting Resources JSON array to []string from []interface{}
+- Duration was being incorrectly cast as an int - needed float64
+- Fixed cordon labeling logic bug and updating drain to address a segfault in the drain helper calls
+- *(refactor)* Changing how appstate is used and updated
+- *(refactor)* Updating log messaging to include state and reduce volume
+- Updated IMDS logic for retries on EOF and EOF handling
+- Resolved duplicate node issue in node tests
+- Updating justfile to fix syntax errors
+- Added a call to get the node object before performing the cordon validation so we don't work on outdated objects
+
+### 🚜 Refactor
+
+- Adding in app state handling to reduce unnecessary kubernetes API calls
+- Pulling app state and context values out into correct packages and updating the cordon/uncordon logic
+- Updating IMDS components to return only errors and work to update app state with shouldDrain logic
+- Reworked node update logic and added additional logging/handling with appstate
+- Adding better handling for parsing events in the IMDS response
+- Split logic for checking if uncordon is needed and if there's drainable node conditions
+- Removed appstate sync function to prevent circular imports
+- Moved the node cordon check and node condition check into the node package
+- State locking and sync across update calls
+- Fixing some of the cordon validation logic
+- Changed mutex unlock defer to include logging
+
+### ⚙️ Miscellaneous Tasks
+
+- Fixing accidental image changes
+- Updating dependency versions
+- *(lint)* Fixing golangci-lint failures
+- *(release)* Scaffolding out kustomize structure for daemonset builds
+- *(release)* Finishing initial work for kustomize deploy
+- *(ci)* Fixing linting checks
+- *(lint)* Fixing lint findings with mutex added to app state
+- *(release)* Added command to dockerfile for updating image packages prior to build completing
+
 ## [0.1.2] - 2024-07-15
 
 ### 🐛 Bug Fixes
