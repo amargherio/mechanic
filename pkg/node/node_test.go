@@ -405,7 +405,57 @@ func TestCheckNodeConditions(t *testing.T) {
 			expectedResponse: true,
 		},
 		{
-			name: "node has no VMScheduledEvent",
+			name: "node has FreezeScheduled",
+			prepNodeFunc: func(n *v1.Node) {
+				n.Status.Conditions = append(n.Status.Conditions, v1.NodeCondition{
+					Type:   v1.NodeConditionType("FreezeScheduled"),
+					Status: v1.ConditionTrue,
+				})
+			},
+			expectedResponse: true,
+		},
+		{
+			name: "node has RebootScheduled",
+			prepNodeFunc: func(n *v1.Node) {
+				n.Status.Conditions = append(n.Status.Conditions, v1.NodeCondition{
+					Type:   v1.NodeConditionType("RebootScheduled"),
+					Status: v1.ConditionTrue,
+				})
+			},
+			expectedResponse: true,
+		},
+		{
+			name: "node has RedeployScheduled",
+			prepNodeFunc: func(n *v1.Node) {
+				n.Status.Conditions = append(n.Status.Conditions, v1.NodeCondition{
+					Type:   v1.NodeConditionType("RedeployScheduled"),
+					Status: v1.ConditionTrue,
+				})
+			},
+			expectedResponse: true,
+		},
+		{
+			name: "node has PreemptScheduled",
+			prepNodeFunc: func(n *v1.Node) {
+				n.Status.Conditions = append(n.Status.Conditions, v1.NodeCondition{
+					Type:   v1.NodeConditionType("PreemptScheduled"),
+					Status: v1.ConditionTrue,
+				})
+			},
+			expectedResponse: true,
+		},
+		{
+			name: "node has TerminateScheduled",
+			prepNodeFunc: func(n *v1.Node) {
+				n.Status.Conditions = append(n.Status.Conditions, v1.NodeCondition{
+					Type:   v1.NodeConditionType("TerminateScheduled"),
+					Status: v1.ConditionTrue,
+				})
+			},
+			expectedResponse: true,
+		},
+		{
+			name: "node has no scheduled events",
 			prepNodeFunc: func(n *v1.Node) {
 			},
 			expectedResponse: false,
@@ -428,7 +478,13 @@ func TestCheckNodeConditions(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "values", vals)
 
 			tc.prepNodeFunc(node)
-			response := CheckNodeConditions(ctx, node)
+			response := CheckNodeConditions(ctx, node, config.DrainConditions{
+				DrainOnFreeze:    true,
+				DrainOnReboot:    true,
+				DrainOnRedeploy:  true,
+				DrainOnPreempt:   true,
+				DrainOnTerminate: true,
+			})
 			assert.Equal(t, tc.expectedResponse, response, "Expected response to be %v, got %v", tc.expectedResponse, response)
 		})
 	}

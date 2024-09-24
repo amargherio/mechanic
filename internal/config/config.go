@@ -88,3 +88,29 @@ func buildDrainConditions(config *viper.Viper) DrainConditions {
 		DrainOnTerminate: config.GetBool("DRAIN_ON_TERMINATE"),
 	}
 }
+
+func (dc *DrainConditions) DrainableConditions() []string {
+	drainableConditions := []string{}
+
+	if dc.DrainOnFreeze {
+		drainableConditions = append(drainableConditions, "Freeze")
+	}
+
+	if dc.DrainOnReboot {
+		drainableConditions = append(drainableConditions, "Reboot")
+	}
+
+	if dc.DrainOnRedeploy {
+		drainableConditions = append(drainableConditions, "Redeploy")
+	}
+
+	if dc.DrainOnPreempt {
+		drainableConditions = append(drainableConditions, "Preempt")
+	}
+
+	if dc.DrainOnTerminate {
+		drainableConditions = append(drainableConditions, "Terminate")
+	}
+
+	return drainableConditions
+}

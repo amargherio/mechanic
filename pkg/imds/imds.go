@@ -59,7 +59,7 @@ type IMDS interface {
 type IMDSClient struct{}
 
 // CheckIfDrainRequired checks if the node should be drained based on scheduled events from IMDS.
-func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) (bool, error) {
+func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node, drainConditions *config.DrainConditions) (bool, error) {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
 
@@ -96,6 +96,15 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) (bool, er
 		return shouldDrain, err
 	}
 
+	// drainable conditions is a map of boolean values for each node condition
+	drainableConditions := map[ScheduledEventType]bool{
+		Reboot:    drainConditions.DrainOnReboot,
+		Redeploy:  drainConditions.DrainOnRedeploy,
+		Preempt:   drainConditions.DrainOnPreempt,
+		Terminate: drainConditions.DrainOnTerminate,
+		Freeze:    drainConditions.DrainOnFreeze,
+	}
+
 	// for each event in the scheduled events response, check if the event is for the current instance
 	for _, event := range resp.Events {
 		impacted, err := isNodeImpacted(ctx, node, event)
@@ -104,22 +113,31 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node) (bool, er
 		}
 
 		if impacted {
-			// this event impacts the node we're on. let's see what kind of event it is so we know if we need to take action
-			switch event.Type {
-			case Reboot, Redeploy, Preempt, Terminate:
+			if event.Type != Freeze && drainableConditions[event.Type] {
+				// this is all non-freeze event types since we need to do special things with freezes
 				log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId)
 				shouldDrain = true
 				return shouldDrain, nil
-			case Freeze:
-				// TODO: Freeze event types also indicate an LM which could be critical...how do we differentiate? using description is a poor workaround
-				if strings.Contains(event.Description, "memory-preserving Live Migration") {
+			} else if event.Type == Freeze {
+				if !drainableConditions[event.Type] {
+					// check if it's an LM and not a regular freeze. if so, proceed with the drain
+					// TODO: Freeze event types also indicate an LM which could be critical...how do we differentiate? using description is a poor workaround
+					if strings.Contains(event.Description, "memory-preserving Live Migration") {
+						log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId)
+						shouldDrain = true
+						return shouldDrain, nil
+					} else {
+						// not draining for this type of freeze
+						log.Debugw("Found a freeze event that does not require draining", "event", event, "eventId", event.EventId)
+						continue
+					}
+				} else {
+					// the customer wants to be drained for freeze events, so why not!
 					log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId)
 					shouldDrain = true
 					return shouldDrain, nil
-				} else {
-					log.Debugw("Found a freeze event that does not require draining", "event", event, "eventId", event.EventId)
 				}
-			default:
+			} else {
 				log.Debugw("Found an event that targets current node, but does not require draining", "event", event, "eventId", event.EventId)
 			}
 		}
