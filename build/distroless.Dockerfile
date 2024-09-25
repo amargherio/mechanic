@@ -10,15 +10,6 @@ RUN go build -o mechanic ./cmd/mechanic
 
 FROM $RUNTIME_IMAGE
 
-
-# if the RUNTIME_IMAGE contains distroless, skip the following steps
-USER root
-RUN tdnf update -y \
-    && tdnf upgrade -y \
-    && tdnf clean all \
-    && rm -rf /var/cache/tdnf
-USER nonroot
-
 COPY --from=builder /usr/src/mechanic/mechanic /usr/local/bin/mechanic
 
 CMD ["mechanic"]

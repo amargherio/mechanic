@@ -19,7 +19,7 @@ build-local-containers:
 generate-release-notes:
   git cliff --bump -o CHANGELOG.md
 
-build-images repository tag:
+build-image repository tag:
   (which docker || which podman) || (echo "a valid container runtime install is required to build images" && exit 1)
   if `command -v docker > /dev/null 2>&1` {
   echo "using docker"
