@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/kubectl/pkg/drain"
+	"slices"
 	"strings"
 )
 
@@ -247,9 +248,30 @@ func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v
 	}
 }
 
-func CheckNodeConditions(ctx context.Context, node *v1.Node) bool {
+func CheckNodeConditions(ctx context.Context, node *v1.Node, drainConditions config.DrainConditions) bool {
 	vals := ctx.Value("values").(config.ContextValues)
 	log := vals.Logger
+
+	// iterate through the DrainConditions fields and build a list of drainable node conditions
+	// todo: this feels hacky...should be a better way to do this
+	drainableConditions := make([]string, 0)
+	drainableConditions = append(drainableConditions, "VMEventScheduled") // always cover a generic `VMEventScheduled` condition
+
+	if drainConditions.DrainOnFreeze {
+		drainableConditions = append(drainableConditions, "FreezeScheduled")
+	}
+	if drainConditions.DrainOnReboot {
+		drainableConditions = append(drainableConditions, "RebootScheduled")
+	}
+	if drainConditions.DrainOnRedeploy {
+		drainableConditions = append(drainableConditions, "RedeployScheduled")
+	}
+	if drainConditions.DrainOnPreempt {
+		drainableConditions = append(drainableConditions, "PreemptScheduled")
+	}
+	if drainConditions.DrainOnTerminate {
+		drainableConditions = append(drainableConditions, "TerminateScheduled")
+	}
 
 	resp := false
 	conditions := node.Status.Conditions
@@ -257,13 +279,14 @@ func CheckNodeConditions(ctx context.Context, node *v1.Node) bool {
 		if resp {
 			break
 		} else {
-			if condition.Type == "VMEventScheduled" {
+			if slices.Contains(drainableConditions, string(condition.Type)) {
 				// check the status of the condition. if it's true, update state.HasEventScheduled to true. if it's false, reset it to false and
 				// remove the cordon if we're the ones who cordoned it
 				switch condition.Status {
 				case "True":
 					log.Infow("Node has an upcoming scheduled event. Flagging for impact assessment.",
 						"node", node.Name,
+						"type", condition.Type,
 						"lastTransitionTime", condition.LastTransitionTime,
 						"reason", condition.Reason,
 						"message", condition.Message)

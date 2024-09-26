@@ -89,6 +89,19 @@ subjects:
     name: mechanic
     namespace: mechanic
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mechanic
+  namespace: mechanic
+data:
+  mechanic.yaml: |
+    DRAIN_ON_FREEZE: true
+    DRAIN_ON_REBOOT: true
+    DRAIN_ON_REDEPLOY: false
+    DRAIN_ON_PREEMPT: true
+    DRAIN_ON_TERMINATE: true
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:

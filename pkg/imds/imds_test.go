@@ -16,9 +16,10 @@ import (
 )
 
 type TestCase struct {
-	name           string
-	mockResponse   ScheduledEventsResponse
-	expectedResult bool
+	name            string
+	mockResponse    ScheduledEventsResponse
+	expectedResult  bool
+	drainConditions config.DrainConditions
 }
 
 func TestCheckIfDrainRequired(t *testing.T) {
@@ -30,6 +31,13 @@ func TestCheckIfDrainRequired(t *testing.T) {
 				Events:        []ScheduledEvent{},
 			},
 			expectedResult: false,
+			drainConditions: config.DrainConditions{
+				DrainOnFreeze:    true,
+				DrainOnReboot:    true,
+				DrainOnRedeploy:  true,
+				DrainOnPreempt:   true,
+				DrainOnTerminate: true,
+			},
 		},
 		{
 			name: "scheduled event that doesn't impact target node",
@@ -50,6 +58,13 @@ func TestCheckIfDrainRequired(t *testing.T) {
 				},
 			},
 			expectedResult: false,
+			drainConditions: config.DrainConditions{
+				DrainOnFreeze:    false,
+				DrainOnPreempt:   true,
+				DrainOnReboot:    true,
+				DrainOnRedeploy:  true,
+				DrainOnTerminate: true,
+			},
 		},
 		{
 			name: "scheduled event that requires drain",
@@ -70,6 +85,13 @@ func TestCheckIfDrainRequired(t *testing.T) {
 				},
 			},
 			expectedResult: true,
+			drainConditions: config.DrainConditions{
+				DrainOnFreeze:    false,
+				DrainOnPreempt:   true,
+				DrainOnReboot:    false,
+				DrainOnRedeploy:  true,
+				DrainOnTerminate: true,
+			},
 		},
 		{
 			name: "scheduled event that doesn't require drain",
@@ -90,6 +112,13 @@ func TestCheckIfDrainRequired(t *testing.T) {
 				},
 			},
 			expectedResult: false,
+			drainConditions: config.DrainConditions{
+				DrainOnFreeze:    false,
+				DrainOnPreempt:   true,
+				DrainOnReboot:    false,
+				DrainOnRedeploy:  true,
+				DrainOnTerminate: true,
+			},
 		},
 		{
 			name: "live migration that does requires drain",
@@ -110,6 +139,67 @@ func TestCheckIfDrainRequired(t *testing.T) {
 				},
 			},
 			expectedResult: true,
+			drainConditions: config.DrainConditions{
+				DrainOnFreeze:    false,
+				DrainOnPreempt:   true,
+				DrainOnReboot:    false,
+				DrainOnRedeploy:  true,
+				DrainOnTerminate: true,
+			},
+		},
+		{
+			name: "non-LM freeze that requires a drain",
+			mockResponse: ScheduledEventsResponse{
+				IncarnationID: -1,
+				Events: []ScheduledEvent{
+					{
+						Description:  "freeze maintenance",
+						Duration:     5,
+						EventId:      "73578921-FFE4-4A5B-95C7-FEB9BBBB3B09",
+						EventSource:  Platform,
+						EventStatus:  Scheduled,
+						Type:         Freeze,
+						NotBefore:    time.Now().Add(1 * time.Hour),
+						ResourceType: "VirtualMachine",
+						Resources:    []string{"_test-vmss_1"},
+					},
+				},
+			},
+			expectedResult: true,
+			drainConditions: config.DrainConditions{
+				DrainOnFreeze:    true,
+				DrainOnPreempt:   true,
+				DrainOnReboot:    false,
+				DrainOnRedeploy:  true,
+				DrainOnTerminate: true,
+			},
+		},
+		{
+			name: "no drain, all events are turned off",
+			mockResponse: ScheduledEventsResponse{
+				IncarnationID: -1,
+				Events: []ScheduledEvent{
+					{
+						Description:  "reimage",
+						Duration:     5,
+						EventId:      "73578921-FFE4-4A5B-95C7-FEB9BBBB3B09",
+						EventSource:  Platform,
+						EventStatus:  Scheduled,
+						Type:         Redeploy,
+						NotBefore:    time.Now().Add(1 * time.Hour),
+						ResourceType: "VirtualMachine",
+						Resources:    []string{"_test-vmss_1"},
+					},
+				},
+			},
+			expectedResult: false,
+			drainConditions: config.DrainConditions{
+				DrainOnFreeze:    false,
+				DrainOnPreempt:   false,
+				DrainOnReboot:    false,
+				DrainOnRedeploy:  false,
+				DrainOnTerminate: false,
+			},
 		},
 	}
 
@@ -141,7 +231,7 @@ func TestCheckIfDrainRequired(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "test-vmss000001"},
 			}
 
-			b, err := CheckIfDrainRequired(ctx, mockIMDS, node)
+			b, err := CheckIfDrainRequired(ctx, mockIMDS, node, &tc.drainConditions)
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}

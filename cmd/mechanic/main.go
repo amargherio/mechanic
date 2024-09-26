@@ -120,7 +120,7 @@ func main() {
 			node := new.(*v1.Node)
 			log.Infow("Node updated, checking for updated conditions", "node", node.Name)
 
-			state.HasEventScheduled = n.CheckNodeConditions(ctx, node)
+			state.HasEventScheduled = n.CheckNodeConditions(ctx, node, cfg.DrainConditions)
 
 			log.Infow("Finished checking node conditions and current state.", "node", node.Name, "state", &state)
 
@@ -132,7 +132,7 @@ func main() {
 				}
 
 				// query IMDS for more information on the scheduled event
-				b, err := imds.CheckIfDrainRequired(ctx, ic, node)
+				b, err := imds.CheckIfDrainRequired(ctx, ic, node, &cfg.DrainConditions)
 				if err != nil {
 					log.Errorw("Failed to query IMDS for scheduled event information. Unable to determine if drain is required.", "error", err, "state", &state)
 					return
