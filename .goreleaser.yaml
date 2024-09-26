@@ -25,11 +25,11 @@ builds:
     goos:
       - linux
       - windows
-      - darwin
     goarch:
       - amd64
       - arm64
     mod_timestamp: "{{.CommitTimestamp}}"
+    main: ./cmd/mechanic
 
 archives:
   - format: tar.gz

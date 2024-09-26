@@ -1,5 +1,8 @@
 hack/local_build_call.sh
 deploy/overlays
+dist/
+cliff.toml
+release.just
 
 # Created by https://www.toptal.com/developers/gitignore/api/go,visualstudiocode,goland
 # Edit at https://www.toptal.com/developers/gitignore?templates=go,visualstudiocode,goland
