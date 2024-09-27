@@ -1,6 +1,11 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 version: 2
 
+report_sizes: true
+
+sboms:
+  - artifacts: archive
+
 before:
   hooks:
     # You may remove this if you don't use go modules.
