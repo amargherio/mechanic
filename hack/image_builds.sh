@@ -34,23 +34,53 @@ for IMAGE in "${BASE_IMAGES[@]}"; do
       ;;
   esac
 
-  if [ "$IS_DISTROLESS" = true ]; then
-    echo "Building mechanic with distroless base image $IMAGE"
-    $CONTAINER_TOOL build -t "$TARGET_REGISTRY/mechanic:$APP_VERSION$SUFFIX" --build-arg RUNTIME_IMAGE="$IMAGE_URL_BASE/$IMAGE" -f ./build/distroless.Dockerfile .
-      if [ $? -ne 0 ]; then
-        echo "Failed to build with runtime base image $IMAGE_URL_BASE/$IMAGE"
-        exit 1
-      fi
 
-      echo "Successfully built mechanic with runtime base image $IMAGE_URL_BASE/$IMAGE. Tagged as $TARGET_REGISTRY/mechanic:$APP_VERSION$SUFFIX"
-  else
-    $CONTAINER_TOOL build -t "$TARGET_REGISTRY/mechanic:$APP_VERSION$SUFFIX" --build-arg RUNTIME_IMAGE="$IMAGE_URL_BASE/$IMAGE" -f ./build/Dockerfile .
-      if [ $? -ne 0 ]; then
-        echo "Failed to build with runtime base image $IMAGE_URL_BASE/$IMAGE"
+  for ARCH in "amd64" "arm64"; do
+    bin_path=""
+    case $ARCH in
+      "amd64")
+        bin_path="dist/mechanic_linux_amd64*/mechanic"
+        ;;
+      "arm64")
+        bin_path="dist/mechanic_linux_arm64*/mechanic"
+        ;;
+      *)
+        echo "Unsupported architecture $ARCH"
         exit 1
-      fi
-      echo "Successfully built mechanic with runtime base image $IMAGE_URL_BASE/$IMAGE. Tagged as $TARGET_REGISTRY/mechanic:$APP_VERSION$SUFFIX"
-  fi
+        ;;
+    esac
+    
+    if [ "$IS_DISTROLESS" = true ]; then
+      echo "Building mechanic with distroless base image $IMAGE for arch $ARCH"
+
+      $CONTAINER_TOOL build -t "$TARGET_REGISTRY/mechanic:$APP_VERSION$SUFFIX" \
+        --build-arg RUNTIME_IMAGE="$IMAGE_URL_BASE/$IMAGE" \
+        --build-arg BIN_PATH="$bin_path" \
+        --arch $ARCH \
+        -f ./build/distroless.Dockerfile .
+
+        if [ $? -ne 0 ]; then
+          echo "Failed to build with runtime base image $IMAGE_URL_BASE/$IMAGE"
+          exit 1
+        fi
+
+        echo "Successfully built mechanic with runtime base image $IMAGE_URL_BASE/$IMAGE for $ARCH. Tagged as $TARGET_REGISTRY/mechanic:$APP_VERSION$SUFFIX"
+    else
+      echo "Building mechanic with base image $IMAGE for arch $ARCH"
+
+      $CONTAINER_TOOL build -t "$TARGET_REGISTRY/mechanic:$APP_VERSION$SUFFIX" \
+        --build-arg RUNTIME_IMAGE="$IMAGE_URL_BASE/$IMAGE" \
+        --build-arg BIN_PATH="$bin_path" \
+        --arch $ARCH \
+        -f ./build/Dockerfile .
+
+        if [ $? -ne 0 ]; then
+          echo "Failed to build with runtime base image $IMAGE_URL_BASE/$IMAGE"
+          exit 1
+        fi
+        echo "Successfully built mechanic with runtime base image $IMAGE_URL_BASE/$IMAGE for $ARCH. Tagged as $TARGET_REGISTRY/mechanic:$APP_VERSION$SUFFIX"
+    fi
+  done
 done
 
 echo "All images successfully built"
