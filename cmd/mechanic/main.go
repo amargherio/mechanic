@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/amargherio/mechanic/internal/tracing"
 	"go.opentelemetry.io/otel"
 	"os"
 
@@ -43,10 +44,6 @@ func main() {
 	defer logger.Sync()
 	log := logger.Sugar()
 
-	tracer := otel.Tracer("mechanic")
-	ctx, span := tracer.Start(context.Background(), "main")
-	defer span.End()
-
 	// continue with app startup
 	state := appstate.State{
 		HasEventScheduled: false,
@@ -60,13 +57,23 @@ func main() {
 		State:  &state,
 	}
 
-	ctx := context.WithValue(context.Background(), "values", vals)
+	ctx := context.WithValue(context.Background(), "values", &vals)
 
 	// Read in config
 	cfg, err := config.ReadConfiguration(ctx)
 	if err != nil {
 		log.Fatalw("Failed to read configuration", "error", err)
 	}
+
+	tp, err := tracing.InitTracer(cfg.EnableTracing)
+	if err != nil {
+		log.Errorw("Failed to initialize tracerprovider", "error", err)
+	}
+	// should we defer tracerprovider shutdown here?
+
+	otel.SetTracerProvider(tp)
+	tracer := otel.Tracer("mechanic")
+	vals.Tracer = &tracer
 
 	// get our kubernnetes client and start an informer on our node
 	log.Info("Building the Kubernetes clientset")
@@ -106,6 +113,8 @@ func main() {
 	ni := factory.Core().V1().Nodes().Informer()
 	ni.AddEventHandler(cache.ResourceEventHandlerDetailedFuncs{
 		UpdateFunc: func(old, new interface{}) {
+			ctx, span := tracer.Start(ctx, "nodeUpdateHandler")
+			defer span.End()
 			// lock the state object so we know we have it exclusively for this function
 			// if we can't get the lock, then we skip processing this node update because we're already processing another one
 			//

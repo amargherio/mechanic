@@ -2,11 +2,10 @@ package config
 
 import (
 	"context"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
-
 	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
@@ -25,6 +24,7 @@ type DrainConditions struct {
 type ContextValues struct {
 	Logger *zap.SugaredLogger
 	State  *appstate.State
+	Tracer *trace.Tracer
 }
 
 // Config is a struct that holds the configuration for the application
@@ -32,7 +32,7 @@ type Config struct {
 	DrainConditions DrainConditions
 	KubeConfig      *rest.Config
 	NodeName        string
-	Span            trace.Span
+	EnableTracing   bool
 }
 
 func ReadConfiguration(ctx context.Context) (Config, error) {
@@ -54,6 +54,7 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 	config.SetDefault("DRAIN_ON_REDEPLOY", true)
 	config.SetDefault("DRAIN_ON_PREEMPT", true)
 	config.SetDefault("DRAIN_ON_TERMINATE", true)
+	config.SetDefault("ENABLE_TRACING", false)
 
 	// set viper to watch for a mounted config file and read it in, handling the error gracefully if it's missing
 	config.SetConfigName("mechanic")
@@ -81,6 +82,7 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 		DrainConditions: drainConfig,
 		KubeConfig:      kc,
 		NodeName:        config.Get("NODE_NAME").(string),
+		EnableTracing:   config.GetBool("ENABLE_TRACING"),
 	}, nil
 }
 
