@@ -33,6 +33,7 @@ jobs:
   build-linux-container-images:
     permissions:
       contents: read
+      packages: write
       attestations: write
       id-token: write
 
@@ -84,9 +85,17 @@ jobs:
             --manifest ${{ target.container_registry}}/mechanic:${{ target.container_tag }} \
             --platform linux/arm64 \
             -f build/distroless.Dockerfile .
+
+      - name: Push images to registry
+        run: |
+          echo ${{ secrets.GITHUB_TOKEN }} | podman login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ target.container_registry}}
+
+          podman manifest push ${{ target.container_registry}}/mechanic:${{ target.container_tag }}-distroless
+          podman manifest push ${{ target.container_registry}}/mechanic:${{ target.container_tag }}
   build-windows-containers:
     permissions:
       contents: read
+      packages: write
       attestations: write
       id-token: write
 
@@ -96,39 +105,46 @@ jobs:
     env:
       target.container_registry: ghcr.io/amargherio/mechanic
       target.container_tag: ${{ github.ref }}
-      var.windows_runtime_image: mcr.microsoft.com/windows/nanoserver:1809
+      var.windows_runtime_image: mcr.microsoft.com/windows/nanoserver:ltsc2019
     
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker
+        run: |
+          Invoke-WebRequest -UseBasicParsing -Uri https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip -OutFile docker-27.3.1.zip
+          Expand-Archive docker-27.3.1.zip -DestinationPath $env:ProgramFiles
+          $env:PATH += ";$env:ProgramFiles\docker"
+          Start-Service Docker
+          docker --version
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v1
+
       - name: Build Windows images
         run: |
-          podman manifest create ${{ target.container_registry}}/mechanic:${{ target.container_tag }}-windows
-          
-          podman build --build-args RUNTIME_IMAGE=${{ var.windows_runtime_image }} \
-            --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic \
-            --manifest ${{ target.container_registry}}/mechanic:${{ target.container_tag }} \
+          docker buildx create --use
+          docker buildx build \
             --platform windows/amd64 \
-            -f build/distroless.Dockerfile .
-
-          podman build --build-args RUNTIME_IMAGE=${{ var.windows_runtime_image }} \
-            --build-arg BIN_PATH=dist/mechanic_windows_arm/mechanic \
-            --manifest ${{ target.container_registry}}/mechanic:${{ target.container_tag }} \
+            --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic \
+            --build-arg RUNTIME_IMAGE=${{ var.windows_runtime_image }} \
+            --tag ${{ target.container_registry}}/mechanic:${{ target.container_tag }}-windows \
+            -f build/windows.Dockerfile .
+          
+          docker buildx build \
             --platform windows/arm64 \
-            -f build/distroless.Dockerfile .
+            --build-arg BIN_PATH=dist/mechanic_windows_arm64/mechanic \
+            --build-arg RUNTIME_IMAGE=${{ var.windows_runtime_image }} \
+            --tag ${{ target.container_registry}}/mechanic:${{ target.container_tag }}-windows \
+            -f build/windows.Dockerfile .
           
       - name: Log in to container registry
-        run: echo ${{ secrets.GITHUB_TOKEN }} | podman login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ target.container_registry}}
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ target.container_registry}}
 
-  push-container-images:
-    permissions:
-      packages: write
-      attestations: write
-      id-token: write
-
-    runs-on: ubuntu-latest
-    needs: build-container-images
-    steps:
       - name: Push images to registry
         run: |
-          podman manifest push ${{ target.container_registry}}/mechanic:${{ target.container_tag }}-distroless
-          podman manifest push ${{ target.container_registry}}/mechanic:${{ target.container_tag }}
           podman manifest push ${{ target.container_registry}}/mechanic:${{ target.container_tag }}-windows
