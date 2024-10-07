@@ -41,8 +41,8 @@ jobs:
     needs: build-go-binaries
     
     env:
-      target.container_registry: ghcr.io/amargherio/mechanic
-      target.container_tag: ${{ github.ref }}
+      var.target_container_registry: ghcr.io/amargherio/mechanic
+      var.target_container_tag: ${{ github.ref }}
       var.distroless_runtime_image: mcr.microsoft.com/cbl-mariner/distroless/minimal:2.0-nonroot
       var.full_runtime_image: mcr.microsoft.com/cbl-mariner/base/core:2.0-nonroot
       
@@ -103,8 +103,8 @@ jobs:
     needs: build-go-binaries
 
     env:
-      target.container_registry: ghcr.io/amargherio/mechanic
-      target.container_tag: ${{ github.ref }}
+      var.target_container_registry: ghcr.io/amargherio/mechanic
+      var.target_container_tag: ${{ github.ref }}
       var.windows_runtime_image: mcr.microsoft.com/windows/nanoserver:ltsc2019
     
     steps:
