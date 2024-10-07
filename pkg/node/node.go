@@ -107,7 +107,7 @@ func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.No
 }
 
 func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
-	vals := ctx.Value("values").(*config.ContextValues)
+	vals := ctx.Value("values").(config.ContextValues)
 
 	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
 	ctx, span := tracer.Start(ctx, "UncordonNode")
