@@ -1,6 +1,14 @@
 name: Code linting
 
-on: [push, pull_request]
+on:
+  push:
+    paths-ignore:
+      - '.github/**'
+  pull_request:
+    paths-ignore:
+      - '.github/**'
+    branches:
+      - master
 
 permissions:
   contents: read

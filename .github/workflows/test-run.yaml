@@ -1,6 +1,9 @@
 name: mechanic CI
 
-on: [push]
+on:
+  push:
+    paths-ignore:
+      - '.github/**'
 
 permissions:
   contents: read
