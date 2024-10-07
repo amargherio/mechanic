@@ -57,41 +57,41 @@ jobs:
       
       - name: Build multi-arch distroless images
         run: |
-          podman manifest create ${{ target.container_registry}}/mechanic:${{ target.container_tag }}-distroless
+          podman manifest create ${{ var.target_container_registry}}/mechanic:${{ var.target_container_tag }}-distroless
           podman build --build-args RUNTIME_IMAGE=${{ var.distroless_runtime_image }} \
             --build-arg BIN_PATH=dist/mechanic_linux_amd64*/mechanic \
-            --manifest ${{ target.container_registry}}/mechanic:${{ target.container_tag }}-distroless \
+            --manifest ${{ var.target_container_registry}}/mechanic:${{ var.target_container_tag }}-distroless \
             --platform linux/amd64 \
             -f build/distroless.Dockerfile .
 
           podman build --build-args RUNTIME_IMAGE=${{ var.distroless_runtime_image }} \
             --build-arg BIN_PATH=dist/mechanic_linux_arm64/mechanic \
-            --manifest ${{ target.container_registry}}/mechanic:${{ target.container_tag }}-distroless \
+            --manifest ${{ var.target_container_registry}}/mechanic:${{ var.target_container_tag }}-distroless \
             --platform linux/arm64 \
             -f build/distroless.Dockerfile .
 
       - name: Build multi-arch base images
         run: |
-          podman manifest create ${{ target.container_registry}}/mechanic:${{ target.container_tag }}
+          podman manifest create ${{ var.target_container_registry}}/mechanic:${{ var.target_container_tag }}
 
           podman build --build-args RUNTIME_IMAGE=${{ var.full_runtime_image }} \
             --build-arg BIN_PATH=dist/mechanic_linux_amd64*/mechanic \
-            --manifest ${{ target.container_registry}}/mechanic:${{ target.container_tag }} \
+            --manifest ${{ var.target_container_registry}}/mechanic:${{ var.target_container_tag }} \
             --platform linux/amd64 \
             -f build/distroless.Dockerfile .
 
           podman build --build-args RUNTIME_IMAGE=${{ var.full_runtime_image }} \
             --build-arg BIN_PATH=dist/mechanic_linux_arm64/mechanic \
-            --manifest ${{ target.container_registry}}/mechanic:${{ target.container_tag }} \
+            --manifest ${{ var.target_container_registry}}/mechanic:${{ var.target_container_tag }} \
             --platform linux/arm64 \
             -f build/distroless.Dockerfile .
 
       - name: Push images to registry
         run: |
-          echo ${{ secrets.GITHUB_TOKEN }} | podman login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ target.container_registry}}
+          echo ${{ secrets.GITHUB_TOKEN }} | podman login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ var.target_container_registry}}
 
-          podman manifest push ${{ target.container_registry}}/mechanic:${{ target.container_tag }}-distroless
-          podman manifest push ${{ target.container_registry}}/mechanic:${{ target.container_tag }}
+          podman manifest push ${{ var.target_container_registry}}/mechanic:${{ var.target_container_tag }}-distroless
+          podman manifest push ${{ var.target_container_registry}}/mechanic:${{ var.target_container_tag }}
   build-windows-containers:
     permissions:
       contents: read
@@ -132,19 +132,19 @@ jobs:
             --platform windows/amd64 \
             --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic \
             --build-arg RUNTIME_IMAGE=${{ var.windows_runtime_image }} \
-            --tag ${{ target.container_registry}}/mechanic:${{ target.container_tag }}-windows \
+            --tag ${{ var.target_container_registry}}/mechanic:${{ var.target_container_tag }}-windows \
             -f build/windows.Dockerfile .
           
           docker buildx build \
             --platform windows/arm64 \
             --build-arg BIN_PATH=dist/mechanic_windows_arm64/mechanic \
             --build-arg RUNTIME_IMAGE=${{ var.windows_runtime_image }} \
-            --tag ${{ target.container_registry}}/mechanic:${{ target.container_tag }}-windows \
+            --tag ${{ var.target_container_registry}}/mechanic:${{ var.target_container_tag }}-windows \
             -f build/windows.Dockerfile .
           
       - name: Log in to container registry
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ target.container_registry}}
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ var.target_container_registry}}
 
       - name: Push images to registry
         run: |
-          podman manifest push ${{ target.container_registry}}/mechanic:${{ target.container_tag }}-windows
+          podman manifest push ${{ var.target_container_registry}}/mechanic:${{ var.target_container_tag }}-windows
