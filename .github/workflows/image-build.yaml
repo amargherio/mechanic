@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
       
@@ -41,14 +41,14 @@ jobs:
     needs: build-go-binaries
     
     env:
-      target_container_registry: ghcr.io/amargherio/mechanic
-      target_container_tag: ${{ github.ref }}
+      target_container_registry: ghcr.io/amargherio
+      target_container_tag: $(echo ${{ github.ref }} | sed 's/refs\/tags\///')
       distroless_runtime_image: mcr.microsoft.com/cbl-mariner/distroless/minimal:2.0-nonroot
       full_runtime_image: mcr.microsoft.com/cbl-mariner/base/core:2.0-nonroot
       
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Set up Podman
         run: |
@@ -103,14 +103,14 @@ jobs:
     needs: build-go-binaries
 
     env:
-      target_container_registry: ghcr.io/amargherio/mechanic
-      target_container_tag: ${{ github.ref }}
+      target_container_registry: ghcr.io/amargherio
+      target_container_tag: $(echo ${{ github.ref }} | sed 's/refs\/tags\///')
       windows_runtime_image: mcr.microsoft.com/windows/nanoserver:ltsc2019
 
     if: false # this should disable the windows image builds for now
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Docker
         run: |
