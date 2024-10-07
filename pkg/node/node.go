@@ -39,7 +39,7 @@ func (l *logger) Write(p []byte) (n int, err error) {
 }
 
 func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) (bool, error) {
-	tracer := otel.Tracer("mechanic")
+	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
 	ctx, span := tracer.Start(ctx, "ReadConfiguration")
 	defer span.End()
 
@@ -109,7 +109,7 @@ func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.No
 func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
 	vals := ctx.Value("values").(*config.ContextValues)
 
-	tracer := vals.Tracer
+	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
 	ctx, span := tracer.Start(ctx, "UncordonNode")
 	defer span.End()
 
@@ -143,7 +143,7 @@ func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.
 }
 
 func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) (bool, error) {
-	tracer := otel.Tracer("mechanic")
+	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
 	ctx, span := tracer.Start(ctx, "DrainNode")
 	defer span.End()
 
@@ -176,7 +176,7 @@ func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Nod
 }
 
 func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, recorder record.EventRecorder) {
-	tracer := otel.Tracer("mechanic")
+	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
 	ctx, span := tracer.Start(ctx, "ValidateCordon")
 	defer span.End()
 
@@ -267,7 +267,7 @@ func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v
 }
 
 func CheckNodeConditions(ctx context.Context, node *v1.Node, drainConditions config.DrainConditions) bool {
-	tracer := otel.Tracer("mechanic")
+	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
 	ctx, span := tracer.Start(ctx, "CheckNodeConditions")
 	defer span.End()
 
@@ -325,7 +325,7 @@ func CheckNodeConditions(ctx context.Context, node *v1.Node, drainConditions con
 }
 
 func removeMechanicCordonLabel(ctx context.Context, node *v1.Node, clientset kubernetes.Interface) {
-	tracer := otel.Tracer("mechanic")
+	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
 	ctx, span := tracer.Start(ctx, "removeMechanicCordonLabel")
 	defer span.End()
 

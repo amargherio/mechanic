@@ -36,7 +36,7 @@ type Config struct {
 }
 
 func ReadConfiguration(ctx context.Context) (Config, error) {
-	tracer := otel.Tracer("mechanic")
+	tracer := otel.Tracer("github.com/amargherio/mechanic/internal/config")
 	ctx, span := tracer.Start(ctx, "ReadConfiguration")
 	defer span.End()
 

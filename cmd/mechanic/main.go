@@ -72,7 +72,7 @@ func main() {
 	// should we defer tracerprovider shutdown here?
 
 	otel.SetTracerProvider(tp)
-	tracer := otel.Tracer("mechanic")
+	tracer := otel.Tracer("github.com/amargherio/mechanic")
 	vals.Tracer = &tracer
 
 	// get our kubernnetes client and start an informer on our node
