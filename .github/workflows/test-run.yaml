@@ -4,12 +4,16 @@ on:
   push:
     paths-ignore:
       - '.github/**'
+  pull_request:
+    paths-ignore:
+      - '.github/**'
 
 permissions:
   contents: read
 
 jobs:
   test-run:
+    if: github.event.pull_request.base.ref == 'master'
     runs-on: ubuntu-latest
 
     steps:
@@ -23,6 +27,7 @@ jobs:
     - name: Run tests
       run: go test -cover -v ./...
   goreleaser-build:
+    if: github.event.pull_request.base.ref == 'master'
     permissions:
       contents: read
 

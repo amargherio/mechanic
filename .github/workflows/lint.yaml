@@ -7,14 +7,13 @@ on:
   pull_request:
     paths-ignore:
       - '.github/**'
-    branches:
-      - master
 
 permissions:
   contents: read
 
 jobs:
   lint:
+    if: github.event.pull_request.base.ref == 'master'
     permissions:
       contents: read
       pull-requests: read
