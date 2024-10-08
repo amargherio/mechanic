@@ -30,6 +30,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Upload Go binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: go-binaries
+          path: dist/
+
   build-linux-container-images:
     permissions:
       contents: read
@@ -49,6 +55,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Download binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: go-binaries
       
       - name: Set up Podman
         run: |
@@ -59,7 +70,7 @@ jobs:
         run: |
           podman manifest create ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-distroless
           podman build --build-arg RUNTIME_IMAGE=${{ env.distroless_runtime_image }} \
-            --build-arg BIN_PATH=dist/mechanic_linux_amd64*/mechanic \
+            --build-arg BIN_PATH=./dist/mechanic_linux_amd64*/mechanic \
             --manifest ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-distroless \
             --platform linux/amd64 \
             -f build/distroless.Dockerfile .
@@ -112,6 +123,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Download binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: go-binaries
+
       - name: Set up Docker
         run: |
           Invoke-WebRequest -UseBasicParsing -Uri https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip -OutFile docker-27.3.1.zip
@@ -148,4 +164,4 @@ jobs:
 
       - name: Push images to registry
         run: |
-          podman manifest push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows
+          docker push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows
