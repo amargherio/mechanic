@@ -3,10 +3,16 @@ name: Code linting
 on:
   push:
     paths-ignore:
-      - '.github/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'go.mod'
   pull_request:
-    paths-ignore:
-      - '.github/**'
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'go.mod'
 
 permissions:
   contents: read
