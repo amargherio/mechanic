@@ -2,7 +2,7 @@ name: mechanic CI
 
 on:
   push:
-    paths-ignore:
+    paths:
       - 'cmd/**'
       - 'internal/**'
       - 'pkg/**'

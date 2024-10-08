@@ -2,7 +2,7 @@ name: Code linting
 
 on:
   push:
-    paths-ignore:
+    paths:
       - 'cmd/**'
       - 'internal/**'
       - 'pkg/**'
