@@ -110,8 +110,9 @@ jobs:
       - name: Push images to registry
         run: |
           set -x
-          podman manifest push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-distroless
-          podman manifest push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}
+          podman manifest push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-distroless ${{ env.target_container_registry }}/mechanic:${{ env.target_container_tag}}-distroless
+          podman manifest push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }} ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}
+
   build-windows-containers:
     permissions:
       contents: read
