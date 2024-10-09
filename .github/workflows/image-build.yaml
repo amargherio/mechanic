@@ -62,12 +62,9 @@ jobs:
           name: go-binaries
           path: dist
 
-      - name: Check artifact download
+      - name: Fix file permissions for executables
         run: |
-          echo "Listing 'dist' directory"
-          ls -lR dist/
-          echo "Listing project root"
-          ls -R
+          chmod +x dist/mechanic_linux_*/mechanic
 
       - name: Set up Podman
         run: |
@@ -105,10 +102,13 @@ jobs:
             --platform linux/arm64 \
             -f build/distroless.Dockerfile .
 
-      - name: Push images to registry
+      - name: Log in to container registry
         run: |
           echo ${{ secrets.GITHUB_TOKEN }} | podman login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ env.target_container_registry}}
+          podman image ls          
 
+      - name: Push images to registry
+        run: |
           podman manifest push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-distroless
           podman manifest push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}
   build-windows-containers:
@@ -135,6 +135,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: go-binaries
+          path: dist
+
+      - name: Fix file permissions for executables
+        run: |
+          chmod +x dist/mechanic_linux_*/mechanic
 
       - name: Set up Docker
         run: |
