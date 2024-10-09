@@ -86,7 +86,7 @@ jobs:
             --platform linux/arm64 \
             -f build/distroless.Dockerfile .
 
-      - name: Build multi-arch base images
+      - name: Build multi-arch core images
         run: |
           podman manifest create ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}
 
@@ -94,13 +94,13 @@ jobs:
             --build-arg BIN_PATH=dist/mechanic_linux_amd64*/mechanic \
             --manifest ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }} \
             --platform linux/amd64 \
-            -f build/distroless.Dockerfile .
+            -f build/Dockerfile .
 
           podman build --build-arg RUNTIME_IMAGE=${{ env.full_runtime_image }} \
             --build-arg BIN_PATH=dist/mechanic_linux_arm64/mechanic \
             --manifest ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }} \
             --platform linux/arm64 \
-            -f build/distroless.Dockerfile .
+            -f build/Dockerfile .
 
       - name: Log in to container registry
         run: |
@@ -109,6 +109,7 @@ jobs:
 
       - name: Push images to registry
         run: |
+          set -x
           podman manifest push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-distroless
           podman manifest push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}
   build-windows-containers:
