@@ -94,13 +94,13 @@ jobs:
             --build-arg BIN_PATH=dist/mechanic_linux_amd64*/mechanic \
             --manifest ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }} \
             --platform linux/amd64 \
-            -f build/Dockerfile .
+            -f build/distroless.Dockerfile .
 
           podman build --build-arg RUNTIME_IMAGE=${{ env.full_runtime_image }} \
             --build-arg BIN_PATH=dist/mechanic_linux_arm64/mechanic \
             --manifest ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }} \
             --platform linux/arm64 \
-            -f build/Dockerfile .
+            -f build/distroless.Dockerfile .
 
       - name: Log in to container registry
         run: |
