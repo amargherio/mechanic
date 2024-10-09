@@ -60,6 +60,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: go-binaries
+          path: dist
 
       - name: Check artifact download
         run: |
