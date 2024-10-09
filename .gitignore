@@ -1,7 +1,6 @@
 hack/local_build_call.sh
 deploy/overlays
 dist/
-cliff.toml
 release.just
 local.just
 
