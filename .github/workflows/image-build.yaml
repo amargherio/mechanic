@@ -152,16 +152,16 @@ jobs:
       - name: Install containerd
         shell: pwsh
         run: |
-          pwsh.exe .\hack\containerd-install.ps1
+          pwsh.exe .\hack\win-builds\containerd-install.ps1
 
       - name: Configure CNI for containerd
         shell: pwsh
         run: |
-          pwsh.exe .\hack\containerd-cni.ps1
+          pwsh.exe .\hack\win-builds\containerd-cni.ps1
 
       - name: Setup and configure buildkit
         run: |
-          pwsh.exe .\hack\buildkit-install.ps1
+          pwsh.exe .\hack\win-builds\buildkit-install.ps1
 
                 
       - name: Log in to container registry
