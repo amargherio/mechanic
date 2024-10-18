@@ -104,8 +104,7 @@ jobs:
 
       - name: Log in to container registry
         run: |
-          echo ${{ secrets.GITHUB_TOKEN }} | podman login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ env.target_container_registry}}
-          podman image ls          
+          echo ${{ secrets.GITHUB_TOKEN }} | podman login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ env.target_container_registry}}       
 
       - name: Push images to registry
         run: |
@@ -128,7 +127,6 @@ jobs:
       target_container_tag: $(echo ${{ github.ref }} | sed 's/refs\/tags\///')
       windows_runtime_image: mcr.microsoft.com/windows/nanoserver:ltsc2019
 
-    if: false # this should disable the windows image builds for now
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
