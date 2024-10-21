@@ -149,41 +149,37 @@ jobs:
           Start-Service Docker
           docker --version
 
-      - name: Install containerd
+      - name: Manually install buildx
         shell: pwsh
         run: |
-          pwsh.exe .\hack\win-builds\containerd-install.ps1
+          $url = "https://api.github.com/repos/docker/buildx/releases/latest"
+          $version = (Invoke-RestMethod -Uri $url -UseBasicParsing).tag_name
+          $arch = "amd64"
 
-      - name: Configure CNI for containerd
-        shell: pwsh
-        run: |
-          pwsh.exe .\hack\win-builds\containerd-cni.ps1
-
-      - name: Setup and configure buildkit
-        run: |
-          pwsh.exe .\hack\win-builds\buildkit-install.ps1
-
+          curl.exe -LO https://github.com/docker/buildx/releases/download/v0.17.1/buildx-v0.17.1.windows-amd64.exe
+          Copy-Item -Path buildx-v0.17.1.windows-amd64.exe -Destination $env:ProgramFiles\Docker\cli-plugins\docker-buildx.exe
                 
       - name: Log in to container registry
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ env.target_container_registry}}
 
       - name: Build Windows images
         run: |
-          buildctl build --frontend dockerfile.v0 \
-            --local context=. \
-            --local dockerfile=.\build\windows.Dockerfile \
-            --opt platform=windows/amd64 \
+          docker buildx create --name winbuild
+          docker buildx use winbuild
+
+          docker buildx build \
+            --platform windows/amd64 \
             --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic \
             --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} \
-            --output type=image,name=${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows
+            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows \
+            -f build/windows.Dockerfile .
 
-          buildctl build --frontend dockerfile.v0 \
-            --local context=. \
-            --local dockerfile=.\build\windows.Dockerfile \
-            --opt platform=windows/arm64 \
-            --opt build-arg:BIN_PATH=dist/mechanic_windows_arm64/mechanic \
-            --opt build-arg:RUNTIME_IMAGE=${{ env.windows_runtime_image }} \
-            --output type=image,name=${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows
+          docker buildx build \
+            --platform windows/arm64 \
+            --build-arg BIN_PATH=dist/mechanic_windows_arm64/mechanic \
+            --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} \
+            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows \
+            -f build/windows.Dockerfile .
 
       - name: Push images to registry
         run: |
