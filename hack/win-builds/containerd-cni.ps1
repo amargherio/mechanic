@@ -8,7 +8,7 @@ $gateway = $natInfo.Subnets[0].GatewayAddress
 $subnet = $natInfo.Subnets[0].AddressPrefix
           
 $cniConfPath = "$env:ProgramFiles\containerd\cni\conf\10-containerd-nat.conf"
-$cniBinDir = "$env:ProgramFiles\containerd\cni\bin|
+$cniBinDir = "$env:ProgramFiles\containerd\cni\bin"
 $cniVersion = "0.3.0"
           
 mkdir $cniBinDir -Force

@@ -1,12 +1,12 @@
 $Version = "1.7.23"
 $Arch = "amd64"
           
-curl.exe -LO https://github.com/containerd/containerd/releases/downloads/v$Version/containerd-$Version-windows-$Arch.tar.gz
-mkdir .\containerd
+curl.exe -LO https://github.com/containerd/containerd/releases/download/v$Version/containerd-$Version-windows-$Arch.tar.gz
+New-Item -ItemType Directory -Path .\containerd
 tar.exe -xvf containerd-$Version-windows-$Arch.tar.gz -C .\containerd
           
 Copy-Item -Path .\containerd\bin -Destination $env:ProgramFiles\containerd -Recurse -Force
-Delete-Item -Path .\containerd -Recurse -Force 
+Remove-Item -Path .\containerd -Recurse -Force
           
 $Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + [IO.Path]::PathSeparator + "$env:ProgramFiles\containerd"
 [Environment]::SetEnvironmentVariable("Path", $Path, "Machine")

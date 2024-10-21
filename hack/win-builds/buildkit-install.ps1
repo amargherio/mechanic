@@ -1,12 +1,12 @@
 $url = "https://api.github.com/repos/moby/buildkit/releases/latest"
 $version = (Invoke-RestMethod -Uri $url -UseBasicParsing).tag_name
-$arch = "amd4"
+$arch = "amd64"
 curl.exe -LO https://github.com/moby/buildkit/releases/download/$version/buildkit-$version.windows-$arch.tar.gz
           
-mkdir .\buildkit
+New-Item -ItemType Directory -Path .\buildkit
 tar.exe -xvf buildkit-$version.windows-$arch.tar.gz -C .\buildkit
 Copy-Item -Path .\buildkit\bin -Destination $env:ProgramFiles\buildkit -Recurse -Force
-Delete-Item -Path .\buildkit -Recurse -Force
+Remove-Item -Path .\buildkit -Recurse -Force
           
 $Path = [Environment]::GetEnvironmentVariable("PATH", "Machine") + [IO.Path]::PathSeparator + "$env:ProgramFiles\buildkit"
 [Environment]::SetEnvironmentVariable("PATH", $Path, "Machine")
