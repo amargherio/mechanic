@@ -156,8 +156,10 @@ jobs:
           $version = (Invoke-RestMethod -Uri $url -UseBasicParsing).tag_name
           $arch = "amd64"
 
-          curl.exe -LO https://github.com/docker/buildx/releases/download/v0.17.1/buildx-v0.17.1.windows-amd64.exe
-          Copy-Item -Path buildx-v0.17.1.windows-amd64.exe -Destination $env:ProgramFiles\Docker\cli-plugins\docker-buildx.exe
+          curl.exe -LO https://github.com/docker/buildx/releases/download/$version/buildx-$version.windows-$arch.exe
+
+          ls $env:ProgramFiles\docker
+          Copy-Item -Path buildx-$version.windows-$arch.exe -Destination $env:ProgramFiles\docker\cli-plugins\docker-buildx.exe
                 
       - name: Log in to container registry
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ env.target_container_registry}}
