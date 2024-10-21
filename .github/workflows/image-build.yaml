@@ -139,50 +139,20 @@ jobs:
 
       - name: Fix file permissions for executables
         run: |
-          chmod +x dist/mechanic_linux_*/mechanic
-
-      - name: Set up Docker
-        run: |
-          Invoke-WebRequest -UseBasicParsing -Uri https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip -OutFile docker-27.3.1.zip
-          Expand-Archive docker-27.3.1.zip -DestinationPath $env:ProgramFiles
-          $env:PATH += ";$env:ProgramFiles\docker"
-          Start-Service Docker
-          docker --version
-
-      - name: Manually install buildx
-        shell: pwsh
-        run: |
-          $url = "https://api.github.com/repos/docker/buildx/releases/latest"
-          $version = (Invoke-RestMethod -Uri $url -UseBasicParsing).tag_name
-          $arch = "amd64"
-
-          curl.exe -LO https://github.com/docker/buildx/releases/download/$version/buildx-$version.windows-$arch.exe
-
-          ls $env:ProgramFiles\docker
-          Copy-Item -Path buildx-$version.windows-$arch.exe -Destination $env:ProgramFiles\docker\cli-plugins\docker-buildx.exe
+          chmod +x dist/mechanic_windows_*/mechanic
                 
       - name: Log in to container registry
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ env.target_container_registry}}
 
       - name: Build Windows images
         run: |
-          docker buildx create --name winbuild
-          docker buildx use winbuild
-
-          docker buildx build \
+          docker build \
             --platform windows/amd64 \
             --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic \
             --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} \
-            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows \
-            -f build/windows.Dockerfile .
-
-          docker buildx build \
-            --platform windows/arm64 \
-            --build-arg BIN_PATH=dist/mechanic_windows_arm64/mechanic \
-            --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} \
-            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows \
+            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows-amd64 \
             -f build/windows.Dockerfile .
 
       - name: Push images to registry
         run: |
-          docker push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows
+          docker push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows-amd64
