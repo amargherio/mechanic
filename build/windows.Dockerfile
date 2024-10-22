@@ -3,6 +3,9 @@ FROM $RUNTIME_IMAGE
 
 ARG BIN_PATH=./mechanic.exe
 
-COPY mechanic.exe $BIN_PATH
+RUN New-Item -ItemType Directory -Path C:\mechanic; \
+    [Environment]::SetEnvironmentVariable('PATH', $env:PATH + ';C:\mechanic', [EnvironmentVariableTarget]::Machine)
+
+COPY $BIN_PATH C:\mechanic\mechanic.exe
 
 CMD ["mechanic.exe"]
