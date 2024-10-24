@@ -3,7 +3,7 @@ FROM $RUNTIME_IMAGE
 
 ARG BIN_PATH=./mechanic.exe
 
-SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+SHELL ["pwsh", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
 WORKDIR "C:\\"
 
