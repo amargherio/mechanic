@@ -137,6 +137,11 @@ jobs:
           name: go-binaries
           path: dist
 
+      - name: Inspect directory and file structure
+        run: |
+          ls -l .
+          ls -l dist
+
       - name: Fix file permissions for executables
         run: |
           chmod +x dist/mechanic_windows_*/mechanic
