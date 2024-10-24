@@ -125,7 +125,7 @@ jobs:
     env:
       target_container_registry: ghcr.io/amargherio
       target_container_tag: $(echo ${{ github.ref }} | sed 's/refs\/tags\///')
-      windows_runtime_image: mcr.microsoft.com/windows/nanoserver:ltsc2019
+      windows_runtime_image: mcr.microsoft.com/windows/nanoserver:ltsc2022
 
     steps:
       - name: Checkout code
