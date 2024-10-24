@@ -3,6 +3,10 @@ FROM $RUNTIME_IMAGE
 
 ARG BIN_PATH=./mechanic.exe
 
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+WORKDIR C:\
+
 RUN New-Item -ItemType Directory -Path C:\mechanic; \
     [Environment]::SetEnvironmentVariable('PATH', $env:PATH + ';C:\mechanic', [EnvironmentVariableTarget]::Machine)
 
