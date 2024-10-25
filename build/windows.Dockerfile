@@ -3,13 +3,10 @@ FROM $RUNTIME_IMAGE
 
 ARG BIN_PATH=./mechanic.exe
 
-#SHELL ["pwsh", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
-
-WORKDIR "C:\\"
-
-#RUN New-Item -ItemType Directory -Path C:\mechanic; [Environment]::SetEnvironmentVariable('PATH', $env:PATH + ';C:\mechanic', [EnvironmentVariableTarget]::Machine)
-RUN mkdir C:\\mechanic
+RUN mkdir C:\mechanic
 
 COPY $BIN_PATH C:\mechanic\mechanic.exe
 
-CMD ["mechanic.exe"]
+RUN setx path "%path%;C:\mechanic"
+
+CMD [mechanic.exe]

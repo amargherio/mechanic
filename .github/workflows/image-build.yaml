@@ -112,14 +112,14 @@ jobs:
           podman manifest push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-distroless ${{ env.target_container_registry }}/mechanic:${{ env.target_container_tag}}-distroless
           podman manifest push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }} ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}
 
-  build-windows-containers:
+  build-windows-2022-containers:
     permissions:
       contents: read
       packages: write
       attestations: write
       id-token: write
 
-    runs-on: windows-latest
+    runs-on: windows-2022
     needs: build-go-binaries
 
     env:
@@ -144,15 +144,15 @@ jobs:
       - name: Log in to container registry
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ env.target_container_registry}}
 
-      - name: Build Windows images
+      - name: Build Windows 2022 images
         run: |
           docker build `
             --platform windows/amd64 `
             --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic.exe `
             --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} `
-            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows-amd64 `
+            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022-amd64 `
             -f build/windows.Dockerfile .
 
       - name: Push images to registry
         run: |
-          docker push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows-amd64
+          docker push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022-amd64
