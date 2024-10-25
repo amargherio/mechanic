@@ -5,7 +5,7 @@ ARG BIN_PATH=./mechanic.exe
 
 RUN mkdir C:\\mechanic
 
-RUN setx path "%path%;C:\\mechanic"
+ENV PATH="$WindowsPATH;C:\\mechanic"
 
 COPY $BIN_PATH C:\\mechanic\\mechanic.exe
 
