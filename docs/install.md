@@ -3,13 +3,10 @@
 The recommended way to run mechanic is through a DaemonSet - this ensures that each node in the cluster has a monitor that
 can coordinate cordon and drain operations. There are some limitations at this time - namely:
 
-- No ARM nodes are supported. The container images for mechanic are built for amd64 architectures.
-- No Windows node support. The container images target a Linux environment.
+- ARM support is available for Linux nodes only.
+- Windows images are available for use on Windows nodes but have not been thoroughly tested.
 
-Mechanic also doesn't offer any pre-built images or generic YAML; the `deploy` directory contains the base of a Kustomize
-folder structure that you can extend to fit your runtime environment and customize the mechanic install to fit your needs. The pre-built
-images aren't provided out of an awareness that the images may need to be customized to work in your environment and meet your
-security standards.
+Mechanic provides pre-built images via the GitHub Container Registry. However, if you prefer or need to build the mechanic images from scratch to meet specific security requirements or standards, the Kustomize base in the `deploy` directory can be used for this purpose. This flexibility allows you to customize the mechanic install to fit your runtime environment and adhere to your security policies.
 
 ## Prerequisites
 
@@ -18,10 +15,17 @@ security standards.
 
 ## Installation
 
-The installation is a two step process as it is outlined here; the first step is to build the container image and push it to a registry, after which
-kustomize can be used to generate YAML for install into a Kubernetes cluster.
+There are two installation paths:
 
-### Building the container image
+- If you're OK using the prebuilt images in the GitHub registry and don't need to make any changes to the YAML found in the Kustomize base (located in the `deploy` directory), you can use the following command to install mechanic:
+
+  ```shell
+  kubectl apply -f deploy/base/mechanic.ds.yaml
+  ```
+
+- If you need to customize the YAML or build the container image from scratch, follow the steps below.
+
+### (optional) Building the container image
 
 The `Dockerfile` located in the build directory uses a multi-stage build to build the mechanic binary from source and then copy it into a
 container image. The build image uses Go 1.22 image from the official Go repository and allows for user input via build arguments to
@@ -35,6 +39,7 @@ just build
 # or, if you prefer calling the build command directly
 docker build -t mechanic:latest -f build/Dockerfile .
 ```
+
 Once built, you can update the tag on the image via `docker tag mechanic:latest <registry>/<namespace>/mechanic:latest` and push the image to your registry.
 
 ### Generating YAML via Kustomize
@@ -47,39 +52,37 @@ You'll leverage the concept of Kustomize overlays to customize the base implemen
 
 1. Within the `deploy` directory, create a new directory for your overlay. In this example, we're configuring our overlay for a development environment:
 
-```shell
-mkdir -p deploy/overlays/dev
-```
+   ```shell
+   mkdir -p deploy/overlays/dev
+   ```
 
 2. Create a `kustomization.yaml` file in the overlay directory and reference the base directory:
 
-```yaml
-resources:
-  - ../../base
+   ```yaml
+   bases:
+     - ../../base
+   
+   patchesStrategicMerge:
+     - image.yaml
+   ```
 
-patchesStrategicMerge:
-  - image.yaml
-```
+   The YAML above shows that it's using the contents of the `base` directory as it's starting point, and it's applying a patch to that starting point from a YAML file named `image.yaml`.
 
-The YAML above shows that it's using the contents of the `base` directory as it's starting point, and it's applying a patch to that
-starting point from a YAML file named `image.yaml`.
+   `image.yaml` is updating the image URL and tag used by the daemonset from it's placeholder value to a valid URL that can be pulled into a cluster:
 
-`image.yaml` is updating the image URL and tag used by the daemonset from it's placeholder value to a valid URL that can be pulled into
-a cluster:
-
-```yaml
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: mechanic
-  namespace: mechanic
-spec:
-  template:
-    spec:
-      containers:
-        - name: mechanic
-          image: <your-image-url>:<your-image-tag>
-```
+   ```yaml
+   apiVersion: apps/v1
+   kind: DaemonSet
+   metadata:
+     name: mechanic
+     namespace: mechanic
+   spec:
+     template:
+       spec:
+         containers:
+           - name: mechanic
+             image: <your-image-url>:<your-image-tag>
+   ```
 
 To complete the deployment, you can use the following one liner from the repository root directory: `kustomize build deploy/overlays/dev | kubectl apply -f -`.
 
