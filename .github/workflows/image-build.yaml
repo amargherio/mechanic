@@ -137,11 +137,6 @@ jobs:
           name: go-binaries
           path: dist
 
-      - name: Inspect directory and file structure
-        run: |
-          ls -l .
-          ls -l dist
-
       - name: Fix file permissions for executables
         run: |
           chmod +x dist/mechanic_windows_*/mechanic
@@ -153,7 +148,7 @@ jobs:
         run: |
           docker build `
             --platform windows/amd64 `
-            --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic `
+            --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic.exe `
             --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} `
             --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows-amd64 `
             -f build/windows.Dockerfile .
