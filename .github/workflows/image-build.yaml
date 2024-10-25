@@ -150,12 +150,12 @@ jobs:
             --platform windows/amd64 `
             --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic.exe `
             --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} `
-            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022-amd64 `
+            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022 `
             -f build/windows.Dockerfile .
 
       - name: Push images to registry
         run: |
-          docker push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022-amd64
+          docker push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022
 
   build-windows-2019-containers:
     permissions:
@@ -195,9 +195,9 @@ jobs:
             --platform windows/amd64 `
             --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic.exe `
             --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} `
-            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2019-amd64 `
+            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2019 `
             -f build/windows.Dockerfile .
 
       - name: Push images to registry
         run: |
-          docker push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022-amd64
+          docker push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2019
