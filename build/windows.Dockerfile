@@ -7,6 +7,7 @@ RUN mkdir C:\\mechanic
 
 RUN setx path "%path%;C:\\mechanic"
 
-COPY $BIN_PATH C:\\mechanic\\mechanic.exe
+#COPY $BIN_PATH C:\\mechanic\\mechanic.exe
+COPY dist//mechanic_windows_amd64*// C:\\mechanic\\
 
 CMD [mechanic.exe]
