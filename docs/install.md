@@ -61,35 +61,19 @@ You'll leverage the concept of Kustomize overlays to customize the base implemen
    ```yaml
    bases:
      - ../../base
-   
-   patchesStrategicMerge:
-     - image.yaml
    ```
 
-   The YAML above shows that it's using the contents of the `base` directory as it's starting point, and it's applying a patch to that starting point from a YAML file named `image.yaml`.
-
-   `image.yaml` is updating the image URL and tag used by the daemonset from it's placeholder value to a valid URL that can be pulled into a cluster:
+   The YAML above shows that it's using the contents of the `base` directory as it's starting point. If you need to make changes to the image used in the deployment (such as pulling from a different registry), you can add the following block at the bottom, filling in the details as appropriate:
 
    ```yaml
-   apiVersion: apps/v1
-   kind: DaemonSet
-   metadata:
-     name: mechanic
-     namespace: mechanic
-   spec:
-     template:
-       spec:
-         containers:
-           - name: mechanic
-             image: <your-image-url>:<your-image-tag>
-   ```
+    images:
+      - name: ghcr.io/amargherio/mechanic
+        newName: <your-image-url>
+        newTag: <your-image-tag>
+    ```
+
+   You can also add additional YAMLs, such as a ConfigMap or Secret, to the overlay directory and reference them in the `kustomization.yaml` file. This allows you to override the base configuration used by mechanic to something more appropriate for your runtime environment and needs.
 
 To complete the deployment, you can use the following one liner from the repository root directory: `kustomize build deploy/overlays/dev | kubectl apply -f -`.
 
 You can view the generated YAML without applying it to the cluster by running `kustomize build deploy/overlays/dev`.
-
-As a final alternative, you can use the Justfile to generate and apply the YAML as well. The Justfile depends on `kubectl` being available in your PATH and the correct cluster set in the kubeconfig:
-
-```shell
-just apply
-```
