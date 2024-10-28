@@ -101,6 +101,8 @@ data:
     DRAIN_ON_REDEPLOY: false
     DRAIN_ON_PREEMPT: true
     DRAIN_ON_TERMINATE: true
+    RUNTIME_ENV: prod
+    ENABLE_TRACING: true
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -141,3 +143,11 @@ spec:
           requests:
             cpu: 100m
             memory: 25Mi
+        volumeMounts:
+          - name: config
+            mountPath: /etc/mechanic
+            readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: mechanic
