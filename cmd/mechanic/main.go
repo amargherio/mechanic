@@ -3,15 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/amargherio/mechanic/internal/tracing"
-	"go.opentelemetry.io/otel"
-	"os"
-
 	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/amargherio/mechanic/internal/config"
+	"github.com/amargherio/mechanic/internal/logging"
+	"github.com/amargherio/mechanic/internal/tracing"
 	"github.com/amargherio/mechanic/pkg/imds"
 	n "github.com/amargherio/mechanic/pkg/node"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
@@ -20,31 +20,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/kubectl/pkg/scheme"
+	"os"
 )
 
 func main() {
-	// initialize zap logging - check for prod env and if it's prod, then use the prod logger. otherwise use dev
 	var logger *zap.Logger
-	var defaultLevel zap.AtomicLevel = zap.NewAtomicLevel()
-	defaultLevel.SetLevel(zap.InfoLevel)
-	env := os.Getenv("ENV")
-	if env == "" {
-		env = "dev"
-	}
+	var ctx context.Context
 
-	// build out logger based on the environment
-	if env == "prod" {
-		zconfig := zap.NewProductionConfig()
-		zconfig.Level = defaultLevel
-		logger, _ = zconfig.Build()
-	} else {
-		logger, _ = zap.NewDevelopment()
-	}
-
-	defer logger.Sync()
-	log := logger.Sugar()
-
-	// continue with app startup
 	state := appstate.State{
 		HasEventScheduled: false,
 		IsCordoned:        false,
@@ -52,30 +34,47 @@ func main() {
 		ShouldDrain:       false,
 	}
 
+	// tracing bootstrapping
+	tp, err := tracing.InitTracer()
+	// todo: should we defer TracerProvider shutdown here?
+	tracer := otel.Tracer("github.com/amargherio/mechanic")
+
+	// initial log bootstrapping
+	var defaultLevel zap.AtomicLevel = zap.NewAtomicLevel()
+	defaultLevel.SetLevel(zap.InfoLevel)
+
+	enc := zap.NewProductionEncoderConfig()
+	enc.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	baseCore := zapcore.NewCore(
+		zapcore.NewJSONEncoder(enc),
+		os.Stdout,
+		defaultLevel)
+	traceCore := logging.NewTraceCore(baseCore, &ctx, tp)
+	logger = zap.New(traceCore)
+	defer logger.Sync()
+	log := logger.Sugar()
+
+	// building app context and contextvalues structs
 	vals := config.ContextValues{
-		Logger: log,
+		Logger: logger.Sugar(),
 		State:  &state,
+		Tracer: &tracer,
 	}
+	ctx = context.WithValue(context.Background(), "values", &vals)
 
-	ctx := context.WithValue(context.Background(), "values", &vals)
-
-	// Read in config
 	cfg, err := config.ReadConfiguration(ctx)
 	if err != nil {
-		log.Fatalw("Failed to read configuration", "error", err)
+		logger.Sugar().Warnw("Failed to read configuration", "error", err)
+		return
 	}
 
-	tp, err := tracing.InitTracer(cfg.EnableTracing)
-	if err != nil {
-		log.Errorw("Failed to initialize tracerprovider", "error", err)
+	// adjust the log level based on the config value
+	if cfg.RuntimeEnv != "prod" {
+		defaultLevel.SetLevel(zap.DebugLevel)
 	}
-	// should we defer tracerprovider shutdown here?
 
-	otel.SetTracerProvider(tp)
-	tracer := otel.Tracer("github.com/amargherio/mechanic")
-	vals.Tracer = &tracer
-
-	// get our kubernnetes client and start an informer on our node
+	// get our kubernetes client and start an informer on our node
 	log.Info("Building the Kubernetes clientset")
 	clientset, err := kubernetes.NewForConfig(cfg.KubeConfig)
 	if err != nil {
@@ -122,17 +121,22 @@ func main() {
 			// 	 ensure that we don't end up needing a RWMutex instead.
 			didLock := state.Lock.TryLock()
 			if !didLock {
-				log.Warnw("Failed to lock state object, skipping update", "node", cfg.NodeName)
+				log.Warnw("Failed to lock state object, skipping update",
+					"node", cfg.NodeName)
 				return
 			}
-			log.Debugw("Locked state object", "node", cfg.NodeName, "state", &state)
+			log.Debugw("Locked state object", "node", cfg.NodeName,
+				"state", &state)
 			defer func() {
 				state.Lock.Unlock()
-				log.Debugw("Unlocked state object", "node", cfg.NodeName, "state", &state)
+				log.Debugw("Unlocked state object",
+					"node", cfg.NodeName,
+					"state", &state)
 			}()
 
 			node := new.(*v1.Node)
-			log.Infow("Node updated, checking for updated conditions", "node", node.Name)
+			log.Infow("Node updated, checking for updated conditions",
+				"node", node.Name)
 
 			state.HasEventScheduled = n.CheckNodeConditions(ctx, node, cfg.DrainConditions)
 
