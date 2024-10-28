@@ -39,13 +39,14 @@ There are some caveats and items worth noting:
 
 - The DaemonSet is deployed in a custom `mechanic` namespace. This is to ensure that the DaemonSet can be managed independently
   of other resources in the cluster.
-- The Kustomize base doesn't have a valid image URL. It's required that you build the image and push it to a registry that
-  your cluster can pull from. Once the iamge is in a registry, you can create a patch to have Kustomize update the image URL.
+- The Kustomize base offers a prebuilt image hosted in the GitHub Container Registry packages of this repository. If you choose,
+  you can build your own image or pull the image from the GitHub Container Registry for this project and push it into
+  your own registry. Once the image is in a registry, you can create a patch to have Kustomize update the image URL.
 - All images use a base container image of Azure Linux.
 
 ## How does it work?
 
-**mechanic** runs as a DaemonSet in your cluster. Each daemon pod monitors node updates and, for each update, checks the 
+**mechanic** runs as a DaemonSet in your cluster. Each daemon pod monitors node updates and, for each update, checks the
 node conditions. If a `VMEventScheduled` condition is present, it queries the [Instance Metadata Service](https://learn.microsoft.com/en-us/azure/virtual-machines/instance-metadata-service?tabs=linux) for maintenance
 information.
 

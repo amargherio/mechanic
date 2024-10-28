@@ -150,9 +150,54 @@ jobs:
             --platform windows/amd64 `
             --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic.exe `
             --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} `
-            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022-amd64 `
+            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022 `
             -f build/windows.Dockerfile .
 
       - name: Push images to registry
         run: |
-          docker push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022-amd64
+          docker push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022
+
+  build-windows-2019-containers:
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    runs-on: windows-2019
+    needs: build-go-binaries
+
+    env:
+      target_container_registry: ghcr.io/amargherio
+      target_container_tag: $(echo ${{ github.ref }} | sed 's/refs\/tags\///')
+      windows_runtime_image: mcr.microsoft.com/windows/nanoserver:ltsc2019
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: go-binaries
+          path: dist
+
+      - name: Fix file permissions for executables
+        run: |
+          chmod +x dist/mechanic_windows_*/mechanic
+                
+      - name: Log in to container registry
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ env.target_container_registry}}
+
+      - name: Build Windows 2019 images
+        run: |
+          docker build `
+            --platform windows/amd64 `
+            --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic.exe `
+            --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} `
+            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2019 `
+            -f build/windows.Dockerfile .
+
+      - name: Push images to registry
+        run: |
+          docker push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2019
