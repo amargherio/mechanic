@@ -4,10 +4,9 @@ import (
 	"context"
 	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/spf13/viper"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
-
 	"go.uber.org/zap"
+
 	"k8s.io/client-go/rest"
 )
 
@@ -29,6 +28,7 @@ type ContextValues struct {
 
 // Config is a struct that holds the configuration for the application
 type Config struct {
+	RuntimeEnv      string
 	DrainConditions DrainConditions
 	KubeConfig      *rest.Config
 	NodeName        string
@@ -36,12 +36,7 @@ type Config struct {
 }
 
 func ReadConfiguration(ctx context.Context) (Config, error) {
-	tracer := otel.Tracer("github.com/amargherio/mechanic/internal/config")
-	ctx, span := tracer.Start(ctx, "ReadConfiguration")
-	defer span.End()
-
-	// grab the logger from the context
-	vals := ctx.Value("values").(ContextValues)
+	vals := ctx.Value("values").(*ContextValues)
 	log := vals.Logger
 
 	log.Debugw("Generating app config")
@@ -54,7 +49,8 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 	config.SetDefault("DRAIN_ON_REDEPLOY", true)
 	config.SetDefault("DRAIN_ON_PREEMPT", true)
 	config.SetDefault("DRAIN_ON_TERMINATE", true)
-	config.SetDefault("ENABLE_TRACING", false)
+	config.SetDefault("ENABLE_TRACING", true)
+	config.SetDefault("RUNTIME_ENV", "prod")
 
 	// set viper to watch for a mounted config file and read it in, handling the error gracefully if it's missing
 	config.SetConfigName("mechanic")
@@ -83,6 +79,7 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 		KubeConfig:      kc,
 		NodeName:        config.Get("NODE_NAME").(string),
 		EnableTracing:   config.GetBool("ENABLE_TRACING"),
+		RuntimeEnv:      config.Get("RUNTIME_ENV").(string),
 	}, nil
 }
 

@@ -65,7 +65,7 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node, drainCond
 	ctx, span := tracer.Start(ctx, "CheckIfDrainRequired")
 	defer span.End()
 
-	vals := ctx.Value("values").(config.ContextValues)
+	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
 
 	log.Infow("Checking if drain is required for node", "node", node.Name)
@@ -156,7 +156,7 @@ func isNodeImpacted(ctx context.Context, node *v1.Node, event ScheduledEvent) (b
 	ctx, span := tracer.Start(ctx, "isNodeImpacted")
 	defer span.End()
 
-	vals := ctx.Value("values").(config.ContextValues)
+	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
 	log.Debugw("Checking if node is impacted by event", "node", node.Name, "event", event.EventId)
 
@@ -185,7 +185,7 @@ func getInstanceName(ctx context.Context, node *v1.Node) (string, error) {
 	ctx, span := tracer.Start(ctx, "getInstanceName")
 	defer span.End()
 
-	vals := ctx.Value("values").(config.ContextValues)
+	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
 	log.Debugw("Getting instance name for node", "node", node.Name)
 
@@ -212,7 +212,7 @@ func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, er
 	ctx, span := tracer.Start(ctx, "QueryIMDS")
 	defer span.End()
 
-	vals := ctx.Value("values").(config.ContextValues)
+	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
 	log.Debug("Querying IMDS for scheduled event data")
 
@@ -256,7 +256,7 @@ func buildEventResponse(ctx context.Context, generic map[string]interface{}, eve
 	ctx, span := tracer.Start(ctx, "buildEventResponse")
 	defer span.End()
 
-	vals := ctx.Value("values").(config.ContextValues)
+	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
 	log.Debugw("Creating event response from IMDS response", "response", generic)
 

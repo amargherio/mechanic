@@ -43,7 +43,7 @@ func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.No
 	ctx, span := tracer.Start(ctx, "ReadConfiguration")
 	defer span.End()
 
-	vals := ctx.Value("values").(config.ContextValues)
+	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
 
 	// check if our node is cordoned, which throws our app state out of sync
@@ -107,7 +107,7 @@ func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.No
 }
 
 func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
-	vals := ctx.Value("values").(config.ContextValues)
+	vals := ctx.Value("values").(*config.ContextValues)
 
 	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
 	ctx, span := tracer.Start(ctx, "UncordonNode")
@@ -147,7 +147,7 @@ func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Nod
 	ctx, span := tracer.Start(ctx, "DrainNode")
 	defer span.End()
 
-	vals := ctx.Value("values").(config.ContextValues)
+	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
 
 	// drain the node
@@ -180,7 +180,7 @@ func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v
 	ctx, span := tracer.Start(ctx, "ValidateCordon")
 	defer span.End()
 
-	vals := ctx.Value("values").(config.ContextValues)
+	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
 
 	// potential node states:
@@ -271,7 +271,7 @@ func CheckNodeConditions(ctx context.Context, node *v1.Node, drainConditions con
 	ctx, span := tracer.Start(ctx, "CheckNodeConditions")
 	defer span.End()
 
-	vals := ctx.Value("values").(config.ContextValues)
+	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
 
 	// iterate through the DrainConditions fields and build a list of drainable node conditions
@@ -329,7 +329,7 @@ func removeMechanicCordonLabel(ctx context.Context, node *v1.Node, clientset kub
 	ctx, span := tracer.Start(ctx, "removeMechanicCordonLabel")
 	defer span.End()
 
-	vals := ctx.Value("values").(config.ContextValues)
+	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
 
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
