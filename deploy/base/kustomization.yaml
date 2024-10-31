@@ -1,2 +1,4 @@
 resources:
   - mechanic.ds.yaml
+  - mechanic-win2022.ds.yaml
+  - mechanic-win2019.ds.yaml
