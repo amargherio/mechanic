@@ -45,8 +45,10 @@ func (c *TraceCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	// Get the current span from the context, if there is one
 	var sc context.Context
 	var activeSpan trace.Span
-	for _, field := range fields {
+	var ctxIndex int
+	for idx, field := range fields {
 		if field.Key == "traceCtx" {
+			ctxIndex = idx
 			sc = field.Interface.(context.Context)
 			break
 		}
@@ -75,6 +77,16 @@ func (c *TraceCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 			)
 		}
 	}
+	// drop our context from the fields slice prior to logging
+	switch ctxIndex {
+	case 0:
+		fields = fields[1:]
+	case len(fields) - 1:
+		fields = fields[:len(fields)-1]
+	default:
+		fields = append(fields[:ctxIndex], fields[ctxIndex+1:]...)
+	}
+	
 	return c.ioCore.Write(entry, fields)
 }
 
