@@ -35,7 +35,7 @@ func main() {
 	}
 
 	// tracing bootstrapping
-	tp, err := tracing.InitTracer()
+	tp, _ := tracing.InitTracer()
 	// todo: should we defer TracerProvider shutdown here?
 	tracer := otel.Tracer("github.com/amargherio/mechanic")
 
