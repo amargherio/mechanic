@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: mechanic
+  name: mechanic-win2022
   namespace: mechanic
 spec:
   selector:
@@ -18,6 +18,7 @@ spec:
       nodeSelector:
         kubernetes.io/os: windows
         kubernetes.io/arch: amd64
+        kubernetes.io/os-sku: Windows2022
       serviceAccountName: mechanic
       hostPID: true # Facilitates entering the host mount namespace via init
       containers:
