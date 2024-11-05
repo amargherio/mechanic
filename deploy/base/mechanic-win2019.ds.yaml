@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: mechanic-win19
+  name: mechanic-win2019
   namespace: mechanic
 spec:
   selector:
