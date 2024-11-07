@@ -223,7 +223,7 @@ func TestCheckIfDrainRequired(t *testing.T) {
 				State:  &state,
 			}
 
-			ctx := context.WithValue(context.Background(), "values", vals)
+			ctx := context.WithValue(context.Background(), "values", &vals)
 
 			mockIMDS := configureMocks(tc, ctrl)
 

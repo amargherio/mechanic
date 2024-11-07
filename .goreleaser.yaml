@@ -29,6 +29,7 @@ builds:
       - s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.CommitDate}} -X main.builtBy=goreleaser
     gcflags:
       - all=-l -B
+      #- all=-N -l # useful for remote execution of commands during debugging
     goos:
       - linux
       - windows

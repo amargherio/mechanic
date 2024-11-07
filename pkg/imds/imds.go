@@ -68,7 +68,7 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node, drainCond
 	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
 
-	log.Infow("Checking if drain is required for node", "node", node.Name)
+	log.Infow("Checking if drain is required for node", "node", node.Name, "traceCtx", ctx)
 	shouldDrain := false // setting the default drain response to false
 
 	// query IMDS to get scheduled event data
@@ -88,16 +88,16 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node, drainCond
 			if delay > maxDelay {
 				delay = maxDelay
 			}
-			log.Warnw("Received io.EOF error, retrying...", "attempt", i+1, "delay", delay)
+			log.Warnw("Received io.EOF error, retrying...", "attempt", i+1, "delay", delay, "traceCtx", ctx)
 			time.Sleep(delay)
 			continue
 		}
-		log.Errorw("Failed to query IMDS", "error", err)
+		log.Errorw("Failed to query IMDS", "error", err, "traceCtx", ctx)
 		return shouldDrain, err
 	}
 
 	if len(resp.Events) == 0 {
-		log.Debug("No scheduled events found")
+		log.Debugw("No scheduled events found", "traceCtx", ctx)
 		return shouldDrain, err
 	}
 
@@ -120,7 +120,7 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node, drainCond
 		if impacted {
 			if event.Type != Freeze && drainableConditions[event.Type] {
 				// this is all non-freeze event types since we need to do special things with freezes
-				log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId)
+				log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId, "traceCtx", ctx)
 				shouldDrain = true
 				return shouldDrain, nil
 			} else if event.Type == Freeze {
@@ -128,26 +128,26 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node, drainCond
 					// check if it's an LM and not a regular freeze. if so, proceed with the drain
 					// TODO: Freeze event types also indicate an LM which could be critical...how do we differentiate? using description is a poor workaround
 					if strings.Contains(event.Description, "memory-preserving Live Migration") {
-						log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId)
+						log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId, "traceCtx", ctx)
 						shouldDrain = true
 						return shouldDrain, nil
 					} else {
 						// not draining for this type of freeze
-						log.Debugw("Found a freeze event that does not require draining", "event", event, "eventId", event.EventId)
+						log.Debugw("Found a freeze event that does not require draining", "event", event, "eventId", event.EventId, "traceCtx", ctx)
 						continue
 					}
 				} else {
 					// the customer wants to be drained for freeze events, so why not!
-					log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId)
+					log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId, "traceCtx", ctx)
 					shouldDrain = true
 					return shouldDrain, nil
 				}
 			} else {
-				log.Debugw("Found an event that targets current node, but does not require draining", "event", event, "eventId", event.EventId)
+				log.Debugw("Found an event that targets current node, but does not require draining", "event", event, "eventId", event.EventId, "traceCtx", ctx)
 			}
 		}
 	}
-	log.Infow("Did not find any events that require draining the node", "node", node.Name)
+	log.Infow("Did not find any events that require draining the node", "node", node.Name, "traceCtx", ctx)
 	return shouldDrain, nil
 }
 
@@ -158,7 +158,7 @@ func isNodeImpacted(ctx context.Context, node *v1.Node, event ScheduledEvent) (b
 
 	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
-	log.Debugw("Checking if node is impacted by event", "node", node.Name, "event", event.EventId)
+	log.Debugw("Checking if node is impacted by event", "node", node.Name, "event", event.EventId, "traceCtx", ctx)
 
 	// get the instance name for the node
 	instance, err := getInstanceName(ctx, node)
@@ -170,13 +170,13 @@ func isNodeImpacted(ctx context.Context, node *v1.Node, event ScheduledEvent) (b
 	if event.ResourceType == "VirtualMachine" {
 		for _, value := range event.Resources {
 			if value == instance || strings.Contains(value, instance) {
-				log.Infow("Node is impacted by event", "node", node.Name, "event", event.EventId)
+				log.Infow("Node is impacted by event", "node", node.Name, "event", event.EventId, "traceCtx", ctx)
 				return true, nil
 			}
 		}
 	}
 
-	log.Debugw("Node is not impacted by event", "node", node.Name, "event", event.EventId)
+	log.Debugw("Node is not impacted by event", "node", node.Name, "event", event.EventId, "traceCtx", ctx)
 	return false, nil
 }
 
@@ -187,7 +187,7 @@ func getInstanceName(ctx context.Context, node *v1.Node) (string, error) {
 
 	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
-	log.Debugw("Getting instance name for node", "node", node.Name)
+	log.Debugw("Getting instance name for node", "node", node.Name, "traceCtx", ctx)
 
 	// get the last six characters of the node name
 	instanceName := node.Name[len(node.Name)-6:]
@@ -196,12 +196,12 @@ func getInstanceName(ctx context.Context, node *v1.Node) (string, error) {
 	// base36 decode the instanceName to get the VMSS instance number
 	decoded, err := strconv.ParseInt(instanceName, 36, 64)
 	if err != nil {
-		log.Errorw("Failed to decode instance name", "error", err)
+		log.Errorw("Failed to decode instance name", "error", err, "traceCtx", ctx)
 		return "", err
 	}
 
 	decodedInstanceName := fmt.Sprintf("%s_%d", vm, decoded)
-	log.Debugw("Decoded node name to resolve VMSS instance number", "instanceName", decodedInstanceName, "nodeName", node.Name)
+	log.Debugw("Decoded node name to resolve VMSS instance number", "instanceName", decodedInstanceName, "nodeName", node.Name, "traceCtx", ctx)
 	return decodedInstanceName, nil
 }
 
@@ -214,7 +214,7 @@ func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, er
 
 	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
-	log.Debug("Querying IMDS for scheduled event data")
+	log.Debugw("Querying IMDS for scheduled event data", "traceCtx", ctx)
 
 	// query IMDS for scheduled events
 	var eventResponse ScheduledEventsResponse
@@ -231,7 +231,7 @@ func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, er
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Errorw("Failed to query IMDS", "error", err)
+		log.Errorw("Failed to query IMDS", "error", err, "traceCtx", ctx)
 		return ScheduledEventsResponse{}, err
 	}
 
@@ -240,10 +240,10 @@ func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, er
 	// decode the JSON response and handle an EOF response
 	var generic map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&generic); err != nil {
-		log.Errorw("Failed to decode IMDS response", "error", err)
+		log.Errorw("Failed to decode IMDS response", "error", err, "traceCtx", ctx)
 		return ScheduledEventsResponse{}, err
 	}
-	log.Debugw("IMDS response", "status", resp.Status, "json", generic)
+	log.Debugw("IMDS response", "status", resp.Status, "json", generic, "traceCtx", ctx)
 
 	eventResponse = ScheduledEventsResponse{}
 	buildEventResponse(ctx, generic, &eventResponse)
@@ -258,7 +258,7 @@ func buildEventResponse(ctx context.Context, generic map[string]interface{}, eve
 
 	vals := ctx.Value("values").(*config.ContextValues)
 	log := vals.Logger
-	log.Debugw("Creating event response from IMDS response", "response", generic)
+	log.Debugw("Creating event response from IMDS response", "response", generic, "traceCtx", ctx)
 
 	eventResponse.IncarnationID = generic["DocumentIncarnation"].(float64)
 	events := generic["Events"].([]interface{})
@@ -289,13 +289,13 @@ func buildEventResponse(ctx context.Context, generic map[string]interface{}, eve
 			event.NotBefore = parsed
 			event.Duration = time.Duration(eventMap["DurationInSeconds"].(float64)) * time.Second
 		} else {
-			log.Debug("No NotBefore or DurationInSeconds found in event details from IMDS")
+			log.Debug("No NotBefore or DurationInSeconds found in event details from IMDS", "traceCtx", ctx)
 		}
 
-		log.Debugw("Adding parsed event to event slice", "event", event)
+		log.Debugw("Adding parsed event to event slice", "event", event, "traceCtx", ctx)
 
 		eventResponse.Events = append(eventResponse.Events, event)
 	}
 
-	log.Debugw(fmt.Sprintf("Returning an event response with %d events", len(eventResponse.Events)), "eventCount", len(eventResponse.Events), "eventId", eventResponse.IncarnationID)
+	log.Debugw(fmt.Sprintf("Returning an event response with %d events", len(eventResponse.Events)), "eventCount", len(eventResponse.Events), "eventId", eventResponse.IncarnationID, "traceCtx", ctx)
 }

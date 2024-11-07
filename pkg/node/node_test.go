@@ -95,7 +95,7 @@ func TestCordonNode(t *testing.T) {
 				State:  &state,
 			}
 
-			ctx := context.WithValue(context.Background(), "values", vals)
+			ctx := context.WithValue(context.Background(), "values", &vals)
 
 			cordoned, err := CordonNode(ctx, clientset, node)
 			if (err != nil) != tc.expectError {
@@ -160,7 +160,7 @@ func TestDrainNode(t *testing.T) {
 				State:  &state,
 			}
 
-			ctx := context.WithValue(context.Background(), "values", vals)
+			ctx := context.WithValue(context.Background(), "values", &vals)
 
 			drained, err := DrainNode(ctx, clientset, node)
 			if (err != nil) != tc.expectError {
@@ -354,7 +354,7 @@ func TestValidateCordon(t *testing.T) {
 				State:  tc.inputState,
 			}
 
-			ctx := context.WithValue(context.Background(), "values", vals)
+			ctx := context.WithValue(context.Background(), "values", &vals)
 
 			nodeName := "test-node"
 			node := &v1.Node{
@@ -475,7 +475,7 @@ func TestCheckNodeConditions(t *testing.T) {
 				State: &appstate.State{
 					HasEventScheduled: false, IsCordoned: false, ShouldDrain: false, IsDrained: false},
 			}
-			ctx := context.WithValue(context.Background(), "values", vals)
+			ctx := context.WithValue(context.Background(), "values", &vals)
 
 			tc.prepNodeFunc(node)
 			response := CheckNodeConditions(ctx, node, config.DrainConditions{
