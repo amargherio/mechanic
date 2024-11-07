@@ -49,8 +49,8 @@ jobs:
     env:
       target_container_registry: ghcr.io/amargherio
       target_container_tag: $(echo ${{ github.ref }} | sed 's/refs\/tags\///')
-      distroless_runtime_image: mcr.microsoft.com/cbl-mariner/distroless/minimal:2.0-nonroot
-      full_runtime_image: mcr.microsoft.com/cbl-mariner/base/core:2.0-nonroot
+      distroless_runtime_image: mcr.microsoft.com/azurelinux/distroless/minimal:3.0
+      full_runtime_image: mcr.microsoft.com/azurelinux/base/core:3.0
       
     steps:
       - name: Checkout code
