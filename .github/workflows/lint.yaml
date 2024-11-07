@@ -2,6 +2,8 @@ name: Code linting
 
 on:
   push:
+    branches:
+      - master
     paths:
       - 'cmd/**'
       - 'internal/**'
