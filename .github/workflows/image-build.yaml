@@ -65,6 +65,14 @@ jobs:
       - name: Fix file permissions for executables
         run: |
           chmod +x dist/mechanic_linux_*/mechanic
+        
+      - name: Retrieve BIN_PATH from GoReleaser output
+        run: |
+          echo "Grabbing paths for amd64 and arm64 binaries"
+          arm_path=$(jq -r '.[] | select(.goos == "linux" and .goarch == "arm64") | .path' dist/artifacts.json)
+          amd_path=$(jq -r '.[] | select(.goos == "linux" and .goarch == "amd64") | .path' dist/artifacts.json)
+          echo "ARM_BIN_PATH=$arm_path" >> $GITHUB_ENV
+          echo "AMD_BIN_PATH=$amd_path" >> $GITHUB_ENV
 
       - name: Set up Podman
         run: |
@@ -75,13 +83,13 @@ jobs:
         run: |
           podman manifest create ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-distroless
           podman build --build-arg RUNTIME_IMAGE=${{ env.distroless_runtime_image }} \
-            --build-arg BIN_PATH=./dist/mechanic_linux_amd64*/mechanic \
+            --build-arg BIN_PATH=${{ env.AMD_BIN_PATH }}/mechanic \
             --manifest ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-distroless \
             --platform linux/amd64 \
             -f build/distroless.Dockerfile .
 
           podman build --build-arg RUNTIME_IMAGE=${{ env.distroless_runtime_image }} \
-            --build-arg BIN_PATH=./dist/mechanic_linux_arm64*/mechanic \
+            --build-arg BIN_PATH=${{ env.ARM_BIN_PATH }}/mechanic \
             --manifest ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-distroless \
             --platform linux/arm64 \
             -f build/distroless.Dockerfile .
@@ -91,13 +99,13 @@ jobs:
           podman manifest create ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}
 
           podman build --build-arg RUNTIME_IMAGE=${{ env.full_runtime_image }} \
-            --build-arg BIN_PATH=./dist/mechanic_linux_amd64*/mechanic \
+            --build-arg BIN_PATH=${{ env.AMD_BIN_PATH }}/mechanic \
             --manifest ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }} \
             --platform linux/amd64 \
             -f build/distroless.Dockerfile .
 
           podman build --build-arg RUNTIME_IMAGE=${{ env.full_runtime_image }} \
-            --build-arg BIN_PATH=./dist/mechanic_linux_arm64*/mechanic \
+            --build-arg BIN_PATH=${{ env.ARM_BIN_PATH }}/mechanic \
             --manifest ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }} \
             --platform linux/arm64 \
             -f build/distroless.Dockerfile .
@@ -140,6 +148,11 @@ jobs:
       - name: Fix file permissions for executables
         run: |
           chmod +x dist/mechanic_windows_*/mechanic
+
+      - name: Retrieve BIN_PATH from GoReleaser output
+        run: |
+          path=$(jq -r '.[] | select(.goos == "windows" and .goarch == "amd64") | .path' dist/artifacts.json)
+          echo "BIN_PATH=$path" >> $GITHUB_ENV
                 
       - name: Log in to container registry
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ env.target_container_registry}}
@@ -148,7 +161,7 @@ jobs:
         run: |
           docker build `
             --platform windows/amd64 `
-            --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic.exe `
+            --build-arg BIN_PATH=${{ env.BIN_PATH }}/mechanic.exe `
             --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} `
             --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022 `
             -f build/windows.Dockerfile .
@@ -185,6 +198,11 @@ jobs:
       - name: Fix file permissions for executables
         run: |
           chmod +x dist/mechanic_windows_*/mechanic
+
+      - name: Retrieve BIN_PATH from GoReleaser output
+        run: |
+          path=$(jq -r '.[] | select(.goos == "windows" and .goarch == "amd64") | .path' dist/artifacts.json)
+          echo "BIN_PATH=$path" >> $GITHUB_ENV
                 
       - name: Log in to container registry
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ env.target_container_registry}}
@@ -193,7 +211,7 @@ jobs:
         run: |
           docker build `
             --platform windows/amd64 `
-            --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic.exe `
+            --build-arg BIN_PATH=${{ env.BIN_PATH }}/mechanic.exe `
             --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} `
             --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2019 `
             -f build/windows.Dockerfile .
