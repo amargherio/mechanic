@@ -8,6 +8,8 @@ can coordinate cordon and drain operations. There are some limitations at this t
 
 Mechanic provides pre-built images via the GitHub Container Registry. However, if you prefer or need to build the mechanic images from scratch to meet specific security requirements or standards, the Kustomize base in the `deploy` directory can be used for this purpose. This flexibility allows you to customize the mechanic install to fit your runtime environment and adhere to your security policies.
 
+The fastest way to install Mechanic in your cluster is using the static YAML file found in the `deploy/static` directory. Applying it is as simple as running `kubectl apply -f deploy/static/mechanic.yaml`.
+
 ## Prerequisites
 
 - A working install of the standalone binary for [kustomize](https://kustomize.io/).

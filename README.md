@@ -1,4 +1,5 @@
 # Mechanic
+
 [![Go Report Card](https://goreportcard.com/badge/github.com/amargherio/mechanic)](https://goreportcard.com/report/github.com/amargherio/mechanic)
 ![License](https://img.shields.io/github/license/amargherio/mechanic)
 ![Go version](https://img.shields.io/github/go-mod/go-version/amargherio/mechanic)
@@ -12,7 +13,7 @@ is preventing application impacts from maintenance events that require node rebo
 unnecessarily or causing application downtime.
 
 It does this by monitoring node conditions and, when a maintenance event is indicated, querying the Instance Metadata Service
-for maintenance event details. If the event is deemed impactful to the node, it will cordon and drain the node to ensure 
+for maintenance event details. If the event is deemed impactful to the node, it will cordon and drain the node to ensure
 pods are rescheduled to other nodes before the maintenance event occurs.
 
 ## What's the best way to use this?
@@ -21,16 +22,17 @@ The best combination of functionality would be using this alongside Cluster Auto
 implementation used by AKS will manage the `VMEventScheduled` node condition which triggers this drain functionality.
 
 As the pods are drained from the node, without Cluster Autoscaler the cluster could exhaust available compute resources;
-using CAS or [Node Autoprovisioning](https://learn.microsoft.com/en-us/azure/aks/node-autoprovision?tabs=azure-cli) would 
+using CAS or [Node Autoprovisioning](https://learn.microsoft.com/en-us/azure/aks/node-autoprovision?tabs=azure-cli) would
 ensure that the cluster can scale to meet the demands of the pods being rescheduled.
 
 ### Installing mechanic in a cluster
 
+> _tl;dr_ - `kubectl apply -f deploy/static/mechanic.yaml` for the default configuration and latest prod image.
+
 The recommended way to run mechanic is through a DaemonSet - this ensures that each node in the cluster has a monitor that
 can coordinate cordon and drain operations. There are some limitations at this time - namely:
 
-- No ARM nodes are supported. The container images for mechanic are built for amd64 architectures.
-- No Windows node support. The container images target a Linux environment.
+- No support for Windows nodes running on ARM64 SKUs.
 
 Mechanic is offered as a base set of YAMLs that can be applied to your cluster through the use of [kustomize](https://kustomize.io/).
 For details on generating valid YAML to install the DaemonSet, see the [installation](./docs/install.md) guide.
@@ -55,7 +57,7 @@ During the drain flow, a label is added to the node (`mechanic.cordoned`) indica
 it will check for this label and use it as an input on whether to uncordon the node if the `VMEventScheduled` condition is
 no longer present.
 
-## I'm interested in contributing!
+## I'm interested in contributing
 
 Great! We're always looking for contributors to help improve the project. If you're interested in contributing, please see
 the [contributing docs](./CONTRIBUTING.md) for more information on how to get started.
