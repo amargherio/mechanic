@@ -1,0 +1,251 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mechanic
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mechanic
+  namespace: mechanic
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mechanic-eventer
+  namespace: default
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mechanic-cr
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - pods/eviction
+  verbs:
+  - create
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - statefulsets
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - extensions
+  resources:
+  - daemonsets
+  - replicasets
+  verbs:
+  - get
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mechanic-eventer-rb
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mechanic-eventer
+subjects:
+- kind: ServiceAccount
+  name: mechanic
+  namespace: mechanic
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mechanic-crb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mechanic-cr
+subjects:
+- kind: ServiceAccount
+  name: mechanic
+  namespace: mechanic
+---
+apiVersion: v1
+data:
+  mechanic.yaml: |
+    DRAIN_ON_FREEZE: true
+    DRAIN_ON_REBOOT: true
+    DRAIN_ON_REDEPLOY: false
+    DRAIN_ON_PREEMPT: true
+    DRAIN_ON_TERMINATE: true
+    RUNTIME_ENV: prod
+    ENABLE_TRACING: true
+kind: ConfigMap
+metadata:
+  name: mechanic
+  namespace: mechanic
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: mechanic
+  namespace: mechanic
+spec:
+  selector:
+    matchLabels:
+      app: mechanic
+  template:
+    metadata:
+      labels:
+        app: mechanic
+    spec:
+      containers:
+      - env:
+        - name: MECHANIC_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: ghcr.io/amargherio/mechanic:v1.0.0-distroless
+        imagePullPolicy: Always
+        name: mechanic
+        resources:
+          limits:
+            memory: 50Mi
+          requests:
+            cpu: 100m
+            memory: 25Mi
+        securityContext:
+          privileged: true
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /etc/mechanic
+          name: config
+          readOnly: true
+      hostPID: true
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        kubernetes.io/os: linux
+      serviceAccountName: mechanic
+      volumes:
+      - configMap:
+          name: mechanic
+        name: config
+  updateStrategy:
+    type: RollingUpdate
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: mechanic-win2019
+  namespace: mechanic
+spec:
+  selector:
+    matchLabels:
+      app: mechanic
+  template:
+    metadata:
+      labels:
+        app: mechanic
+    spec:
+      containers:
+      - env:
+        - name: MECHANIC_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: ghcr.io/amargherio/mechanic:v1.0.0-windows2019
+        imagePullPolicy: Always
+        name: mechanic
+        resources:
+          limits:
+            memory: 50Mi
+          requests:
+            cpu: 100m
+            memory: 25Mi
+        securityContext:
+          privileged: true
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /etc/mechanic
+          name: config
+          readOnly: true
+      hostPID: true
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        kubernetes.io/os: windows
+        kubernetes.io/os-sku: Windows2019
+      serviceAccountName: mechanic
+      volumes:
+      - configMap:
+          name: mechanic
+        name: config
+  updateStrategy:
+    type: RollingUpdate
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: mechanic-win2022
+  namespace: mechanic
+spec:
+  selector:
+    matchLabels:
+      app: mechanic
+  template:
+    metadata:
+      labels:
+        app: mechanic
+    spec:
+      containers:
+      - env:
+        - name: MECHANIC_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: ghcr.io/amargherio/mechanic:v1.0.0-windows2022
+        imagePullPolicy: Always
+        name: mechanic
+        resources:
+          limits:
+            memory: 50Mi
+          requests:
+            cpu: 100m
+            memory: 25Mi
+        securityContext:
+          privileged: true
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /etc/mechanic
+          name: config
+          readOnly: true
+      hostPID: true
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        kubernetes.io/os: windows
+        kubernetes.io/os-sku: Windows2022
+      serviceAccountName: mechanic
+      volumes:
+      - configMap:
+          name: mechanic
+        name: config
+  updateStrategy:
+    type: RollingUpdate
