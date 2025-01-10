@@ -83,13 +83,13 @@ jobs:
         run: |
           podman manifest create ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-distroless
           podman build --build-arg RUNTIME_IMAGE=${{ env.distroless_runtime_image }} \
-            --build-arg BIN_PATH=${{ env.AMD_BIN_PATH }}/mechanic \
+            --build-arg BIN_PATH=${{ env.AMD_BIN_PATH }} \
             --manifest ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-distroless \
             --platform linux/amd64 \
             -f build/distroless.Dockerfile .
 
           podman build --build-arg RUNTIME_IMAGE=${{ env.distroless_runtime_image }} \
-            --build-arg BIN_PATH=${{ env.ARM_BIN_PATH }}/mechanic \
+            --build-arg BIN_PATH=${{ env.ARM_BIN_PATH }} \
             --manifest ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-distroless \
             --platform linux/arm64 \
             -f build/distroless.Dockerfile .
@@ -99,13 +99,13 @@ jobs:
           podman manifest create ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}
 
           podman build --build-arg RUNTIME_IMAGE=${{ env.full_runtime_image }} \
-            --build-arg BIN_PATH=${{ env.AMD_BIN_PATH }}/mechanic \
+            --build-arg BIN_PATH=${{ env.AMD_BIN_PATH }} \
             --manifest ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }} \
             --platform linux/amd64 \
             -f build/distroless.Dockerfile .
 
           podman build --build-arg RUNTIME_IMAGE=${{ env.full_runtime_image }} \
-            --build-arg BIN_PATH=${{ env.ARM_BIN_PATH }}/mechanic \
+            --build-arg BIN_PATH=${{ env.ARM_BIN_PATH }} \
             --manifest ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }} \
             --platform linux/arm64 \
             -f build/distroless.Dockerfile .
@@ -151,7 +151,7 @@ jobs:
 
       - name: Retrieve BIN_PATH from GoReleaser output
         run: |
-          path=$(jq -r '.[] | select(.goos == "windows" and .goarch == "amd64") | .path' dist/artifacts.json)
+          $path = (jq -r '.[] | select(.goos == "windows" and .goarch == "amd64") | .path' dist/artifacts.json)
           echo "BIN_PATH=$path" >> $GITHUB_ENV
                 
       - name: Log in to container registry
@@ -161,7 +161,7 @@ jobs:
         run: |
           docker build `
             --platform windows/amd64 `
-            --build-arg BIN_PATH=${{ env.BIN_PATH }}/mechanic.exe `
+            --build-arg BIN_PATH=${{ env.BIN_PATH }} `
             --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} `
             --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022 `
             -f build/windows.Dockerfile .
@@ -201,7 +201,7 @@ jobs:
 
       - name: Retrieve BIN_PATH from GoReleaser output
         run: |
-          path=$(jq -r '.[] | select(.goos == "windows" and .goarch == "amd64") | .path' dist/artifacts.json)
+          $path = (jq -r '.[] | select(.goos == "windows" and .goarch == "amd64") | .path' dist/artifacts.json)
           echo "BIN_PATH=$path" >> $GITHUB_ENV
                 
       - name: Log in to container registry
@@ -211,7 +211,7 @@ jobs:
         run: |
           docker build `
             --platform windows/amd64 `
-            --build-arg BIN_PATH=${{ env.BIN_PATH }}/mechanic.exe `
+            --build-arg BIN_PATH=${{ env.BIN_PATH }} `
             --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} `
             --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2019 `
             -f build/windows.Dockerfile .
