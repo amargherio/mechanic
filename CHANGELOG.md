@@ -5,7 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2024-11-07
+## [2025.1] - 2025-01-10
+
+### <!-- 7 -->⚙️ Miscellaneous Tasks
+- Bumping the image version in yamls for 2025.1
+
+## [1.0.0] - 2024-12-27
 
 ### <!-- 0 -->🚀 Features
 - Adding support for customized drain conditions (#20)
@@ -54,6 +59,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Windows 2019 and 2022 YAML updates (#37)
 - Increasing golangci-lint timeout
 - Fixing workflow triggers
+- Generating v1.0.0 release notes
+- Fixing the pathing for the compiled arm64 binary in linux multi-arch images
+- Bumping the image tag in the kustomize manifests
+- Adding in logic to pull the artifact path from goreleaser output. closes #40
+- YAML updates for v1.0.0 image versions
+- YAML updates for v1.0.0 image versions
 
 ## [0.2.0] - 2024-09-24
 
@@ -122,6 +133,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adding linting config
 - Updating deploy yamls to move mechanic DS and service account into their own namespace
 
+[2025.1]: https://github.com///compare/v1.0.0..v2025.1
 [1.0.0]: https://github.com///compare/v0.2.0..v1.0.0
 [0.2.0]: https://github.com///compare/v0.1.2..v0.2.0
 [0.1.2]: https://github.com///compare/v0.1.1..v0.1.2
