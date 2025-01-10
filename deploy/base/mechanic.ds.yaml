@@ -127,7 +127,7 @@ spec:
       hostPID: true # Facilitates entering the host mount namespace via init
       containers:
       - name: mechanic
-        image: ghcr.io/amargherio/mechanic:v1.0.0-distroless
+        image: ghcr.io/amargherio/mechanic:v2025.1-distroless
         imagePullPolicy: Always
         securityContext:
           privileged: true # Gives permission to nsenter /proc/1/ns/mnt
