@@ -73,6 +73,7 @@ jobs:
           amd_path=$(jq -r '.[] | select(.goos == "linux" and .goarch == "amd64") | .path' dist/artifacts.json)
           echo "ARM_BIN_PATH=$arm_path" >> $GITHUB_ENV
           echo "AMD_BIN_PATH=$amd_path" >> $GITHUB_ENV
+          echo "Full paths: ARM = $arm_path, AMD = $amd_path"
 
       - name: Set up Podman
         run: |
@@ -153,6 +154,7 @@ jobs:
         run: |
           $path = (jq -r '.[] | select(.goos == "windows" and .goarch == "amd64") | .path' dist/artifacts.json)
           echo "BIN_PATH=$path" >> $GITHUB_ENV
+          echo "Binary path: $path"
                 
       - name: Log in to container registry
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ env.target_container_registry}}
@@ -203,6 +205,7 @@ jobs:
         run: |
           $path = (jq -r '.[] | select(.goos == "windows" and .goarch == "amd64") | .path' dist/artifacts.json)
           echo "BIN_PATH=$path" >> $GITHUB_ENV
+          echo "Binary path: $path"
                 
       - name: Log in to container registry
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ env.target_container_registry}}
