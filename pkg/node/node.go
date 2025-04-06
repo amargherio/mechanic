@@ -3,6 +3,9 @@ package node
 import (
 	"context"
 	"errors"
+	"slices"
+	"strings"
+
 	"github.com/amargherio/mechanic/internal/config"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
@@ -12,8 +15,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/kubectl/pkg/drain"
-	"slices"
-	"strings"
 )
 
 // temp type for wrapping the zap logger to be io.Writer compatible
@@ -192,7 +193,7 @@ func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v
 	// - node is not cordoned but our state is: we need to reconcile the state
 
 	// checking if we have a scheduled event. if we do, we should make sure node and app state is in sync
-	if vals.State.HasEventScheduled {
+	if vals.State.HasDrainableCondition {
 		if vals.State.IsCordoned && !node.Spec.Unschedulable {
 			log.Debugw("Node has an upcoming event scheduled, state shows cordoned but node is not. Cordon the node.", "node", node.Name, "state", vals.State, "traceCtx", ctx)
 			isCordoned, err := CordonNode(ctx, clientset, node)
@@ -266,7 +267,7 @@ func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v
 	}
 }
 
-func CheckNodeConditions(ctx context.Context, node *v1.Node, drainConditions config.DrainConditions) bool {
+func CheckNodeConditions(ctx context.Context, node *v1.Node, eventDrainConditions *config.ScheduledEventDrainConditions, optDrainConditions *config.OptionalDrainConditions) (bool, bool) {
 	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
 	ctx, span := tracer.Start(ctx, "CheckNodeConditions")
 	defer span.End()
@@ -276,36 +277,28 @@ func CheckNodeConditions(ctx context.Context, node *v1.Node, drainConditions con
 
 	// iterate through the DrainConditions fields and build a list of drainable node conditions
 	// todo: this feels hacky...should be a better way to do this
-	drainableConditions := make([]string, 0)
-	drainableConditions = append(drainableConditions, "VMEventScheduled") // always cover a generic `VMEventScheduled` condition
+	eventShouldDrain := make([]string, 0)
+	optDrainable := make([]string, 0)
+	eventShouldDrain = append(eventShouldDrain, "VMEventScheduled") // always cover a generic `VMEventScheduled` condition
 
-	if drainConditions.DrainOnFreeze {
-		drainableConditions = append(drainableConditions, "FreezeScheduled")
-	}
-	if drainConditions.DrainOnReboot {
-		drainableConditions = append(drainableConditions, "RebootScheduled")
-	}
-	if drainConditions.DrainOnRedeploy {
-		drainableConditions = append(drainableConditions, "RedeployScheduled")
-	}
-	if drainConditions.DrainOnPreempt {
-		drainableConditions = append(drainableConditions, "PreemptScheduled")
-	}
-	if drainConditions.DrainOnTerminate {
-		drainableConditions = append(drainableConditions, "TerminateScheduled")
-	}
+	// use the different calls to DrainableConditions to get the full list of conditions we're configured to drain for
+	eventShouldDrain = append(eventShouldDrain, eventDrainConditions.DrainableConditions()...)
+	optDrainable = append(optDrainable, optDrainConditions.OptionalDrainableConditions()...)
 
-	resp := false
+	drainableResp := false
+	eventResp := false
 	conditions := node.Status.Conditions
+
 	for _, condition := range conditions {
-		if resp {
+		if eventResp && drainableResp {
+			// we've checked and have a drainable condition and an event scheduled condition, so we can stop checking
+			log.Debugw("Node has both a drainable condition and an event scheduled condition. No need to check further.", "node", node.Name, "traceCtx", ctx)
 			break
 		} else {
-			if slices.Contains(drainableConditions, string(condition.Type)) {
+			if !eventResp && slices.Contains(eventShouldDrain, string(condition.Type)) {
 				// check the status of the condition. if it's true, update state.HasEventScheduled to true. if it's false, reset it to false and
 				// remove the cordon if we're the ones who cordoned it
-				switch condition.Status {
-				case "True":
+				if condition.Status == "True" {
 					log.Infow("Node has an upcoming scheduled event. Flagging for impact assessment.",
 						"node", node.Name,
 						"type", condition.Type,
@@ -313,16 +306,34 @@ func CheckNodeConditions(ctx context.Context, node *v1.Node, drainConditions con
 						"reason", condition.Reason,
 						"message", condition.Message,
 						"traceCtx", ctx)
-					resp = true
-				case "False":
-					log.Infow("Node has no upcoming scheduled events", "node", node.Name, "traceCtx", ctx)
-					resp = false
+					eventResp = true
+					drainableResp = true
+				} else {
+					log.Debugw("Condition doesn't align with a VMScheduledEvent condition.", "condition", condition.Type, "node", node.Name, "traceCtx", ctx)
+					eventResp = false
 				}
-				break
+			}
+			if !drainableResp && slices.Contains(optDrainable, string(condition.Type)) {
+				// check the status of the condition. if it's true, update state.HasDrainableCondition to true. if it's false, reset it to false and
+				// remove the cordon if we're the ones who cordoned it
+				if condition.Status == "True" {
+					log.Infow("Node has a drainable condition. Flagging for impact assessment.",
+						"node", node.Name,
+						"type", condition.Type,
+						"lastTransitionTime", condition.LastTransitionTime,
+						"reason", condition.Reason,
+						"message", condition.Message,
+						"traceCtx", ctx)
+					drainableResp = true
+				} else {
+					log.Debugw("Condition doesn't align with a drainable condition.", "condition", condition.Type, "node", node.Name, "traceCtx", ctx)
+					drainableResp = false
+				}
 			}
 		}
 	}
-	return resp
+
+	return drainableResp, eventResp
 }
 
 func removeMechanicCordonLabel(ctx context.Context, node *v1.Node, clientset kubernetes.Interface) {

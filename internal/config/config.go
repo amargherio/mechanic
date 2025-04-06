@@ -2,7 +2,9 @@ package config
 
 import (
 	"context"
+
 	"github.com/amargherio/mechanic/internal/appstate"
+	"github.com/amargherio/mechanic/pkg/consts"
 	"github.com/spf13/viper"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
@@ -10,13 +12,31 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// DrainConditions is a struct that holds the VM scheduled event types that would trigger a drain
-type DrainConditions struct {
-	DrainOnFreeze    bool
-	DrainOnReboot    bool
-	DrainOnRedeploy  bool
-	DrainOnPreempt   bool
-	DrainOnTerminate bool
+// ScheduledEventDrainConditions defines which VM scheduled events should trigger node draining
+type ScheduledEventDrainConditions struct {
+	Freeze        bool `mapstructure:"freeze"`
+	Reboot        bool `mapstructure:"reboot"`
+	Redeploy      bool `mapstructure:"redeploy"`
+	Preempt       bool `mapstructure:"preempt"`
+	Terminate     bool `mapstructure:"terminate"`
+	LiveMigration bool `mapstructure:"liveMigration"`
+}
+
+// OptionalDrainConditions defines additional node conditions that should trigger node draining
+type OptionalDrainConditions struct {
+	KubeletProblem             bool `mapstructure:"kubeletProblem"`
+	KernelDeadlock             bool `mapstructure:"kernelDeadlock"`
+	FrequentKubeletRestarts    bool `mapstructure:"frequentKubeletRestarts"`
+	FrequentContainerdRestarts bool `mapstructure:"frequentContainerdRestarts"`
+	FsCorrupt                  bool `mapstructure:"fsCorrupt"`
+}
+
+// MechanicConfig represents the full configuration structure from mechanic.yaml
+type MechanicConfig struct {
+	ScheduledEvents ScheduledEventDrainConditions `mapstructure:"scheduledEvents"`
+	Optional        OptionalDrainConditions       `mapstructure:"optionalConditions"`
+	RuntimeEnv      string                        `mapstructure:"runtimeEnv"`
+	EnableTracing   bool                          `mapstructure:"enableTracing"`
 }
 
 // ContextValues is a struct that holds the logger and state of the application for use in the shared application context
@@ -28,11 +48,12 @@ type ContextValues struct {
 
 // Config is a struct that holds the configuration for the application
 type Config struct {
-	RuntimeEnv      string
-	DrainConditions DrainConditions
-	KubeConfig      *rest.Config
-	NodeName        string
-	EnableTracing   bool
+	RuntimeEnv                    string
+	ScheduledEventDrainConditions ScheduledEventDrainConditions
+	OptionalDrainConditions       OptionalDrainConditions
+	KubeConfig                    *rest.Config
+	NodeName                      string
+	EnableTracing                 bool
 }
 
 func ReadConfiguration(ctx context.Context) (Config, error) {
@@ -43,80 +64,116 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 
 	config := viper.New()
 
-	// set defaults for the config
-	config.SetDefault("DRAIN_ON_FREEZE", false)
-	config.SetDefault("DRAIN_ON_REBOOT", false)
-	config.SetDefault("DRAIN_ON_REDEPLOY", true)
-	config.SetDefault("DRAIN_ON_PREEMPT", true)
-	config.SetDefault("DRAIN_ON_TERMINATE", true)
-	config.SetDefault("ENABLE_TRACING", true)
-	config.SetDefault("RUNTIME_ENV", "prod")
+	// Set defaults using a default MechanicConfig
+	defaultConfig := MechanicConfig{
+		ScheduledEvents: ScheduledEventDrainConditions{
+			Freeze:        false,
+			Reboot:        false,
+			Redeploy:      true,
+			Preempt:       true,
+			Terminate:     true,
+			LiveMigration: true,
+		},
+		Optional: OptionalDrainConditions{
+			KubeletProblem:             false,
+			KernelDeadlock:             false,
+			FrequentKubeletRestarts:    false,
+			FrequentContainerdRestarts: false,
+			FsCorrupt:                  false,
+		},
+		RuntimeEnv:    "prod",
+		EnableTracing: true,
+	}
 
-	// set viper to watch for a mounted config file and read it in, handling the error gracefully if it's missing
+	// Set up Viper to find and read the config file
 	config.SetConfigName("mechanic")
 	config.AddConfigPath("/etc/mechanic")
 	config.SetConfigType("yaml")
+
+	// Read the config file, handling errors gracefully
 	if err := config.ReadInConfig(); err != nil {
 		log.Warnw("Failed to read in config file, proceeding with default values and environment variables", "error", err)
 	}
 
+	// Allow environment variable overrides
 	config.SetEnvPrefix("MECHANIC")
+	config.AutomaticEnv()
 	config.BindEnv("NODE_NAME")
 
+	// Create a mechanic config instance and unmarshal configuration into it
+	mechanicConfig := defaultConfig
+	if err := config.Unmarshal(&mechanicConfig); err != nil {
+		log.Warnw("Failed to unmarshal config, using default values", "error", err)
+	}
+
+	// Get Kubernetes configuration
 	kc, err := rest.InClusterConfig()
 	if err != nil {
 		log.Errorw("Failed to get in cluster config", "error", err)
 		return Config{}, err
 	}
 
-	// build our config for handling different drain conditions
-	drainConfig := buildDrainConditions(config)
-
-	log.Debugw("Successfully read configuration", "config", config.AllSettings())
+	log.Debugw("Successfully read configuration", "config", mechanicConfig)
 
 	return Config{
-		DrainConditions: drainConfig,
-		KubeConfig:      kc,
-		NodeName:        config.Get("NODE_NAME").(string),
-		EnableTracing:   config.GetBool("ENABLE_TRACING"),
-		RuntimeEnv:      config.Get("RUNTIME_ENV").(string),
+		ScheduledEventDrainConditions: mechanicConfig.ScheduledEvents,
+		OptionalDrainConditions:       mechanicConfig.Optional,
+		KubeConfig:                    kc,
+		NodeName:                      config.GetString("NODE_NAME"),
+		EnableTracing:                 mechanicConfig.EnableTracing,
+		RuntimeEnv:                    mechanicConfig.RuntimeEnv,
 	}, nil
 }
 
-// buildDrainConditions is a helper function that builds the DrainConditions struct from the mechanic config map in the cluster.
-// if no config is found, it will return a struct with default values that match the behavior indicated at
-// https://learn.microsoft.com/en-us/azure/aks/node-auto-repair#node-auto-drain
-func buildDrainConditions(config *viper.Viper) DrainConditions {
-	return DrainConditions{
-		DrainOnFreeze:    config.GetBool("DRAIN_ON_FREEZE"),
-		DrainOnReboot:    config.GetBool("DRAIN_ON_REBOOT"),
-		DrainOnRedeploy:  config.GetBool("DRAIN_ON_REDEPLOY"),
-		DrainOnPreempt:   config.GetBool("DRAIN_ON_PREEMPT"),
-		DrainOnTerminate: config.GetBool("DRAIN_ON_TERMINATE"),
-	}
-}
-
-func (dc *DrainConditions) DrainableConditions() []string {
+// DrainableConditions returns a list of VM event conditions that would trigger a drain
+func (dc *ScheduledEventDrainConditions) DrainableConditions() []string {
 	drainableConditions := []string{}
 
-	if dc.DrainOnFreeze {
-		drainableConditions = append(drainableConditions, "Freeze")
+	if dc.Freeze || dc.LiveMigration {
+		drainableConditions = append(drainableConditions, string(consts.Freeze))
 	}
 
-	if dc.DrainOnReboot {
-		drainableConditions = append(drainableConditions, "Reboot")
+	if dc.Reboot {
+		drainableConditions = append(drainableConditions, string(consts.Reboot))
 	}
 
-	if dc.DrainOnRedeploy {
-		drainableConditions = append(drainableConditions, "Redeploy")
+	if dc.Redeploy {
+		drainableConditions = append(drainableConditions, string(consts.Redeploy))
 	}
 
-	if dc.DrainOnPreempt {
-		drainableConditions = append(drainableConditions, "Preempt")
+	if dc.Preempt {
+		drainableConditions = append(drainableConditions, string(consts.Preempt))
 	}
 
-	if dc.DrainOnTerminate {
-		drainableConditions = append(drainableConditions, "Terminate")
+	if dc.Terminate {
+		drainableConditions = append(drainableConditions, string(consts.Terminate))
+	}
+
+	return drainableConditions
+}
+
+// OptionalDrainableConditions returns a list of optional node conditions that would trigger a drain
+func (oc *OptionalDrainConditions) OptionalDrainableConditions() []string {
+	drainableConditions := []string{}
+
+	if oc.KubeletProblem {
+		drainableConditions = append(drainableConditions, string(consts.KubeletProblem))
+	}
+
+	if oc.KernelDeadlock {
+		drainableConditions = append(drainableConditions, string(consts.KernelDeadlock))
+	}
+
+	if oc.FrequentKubeletRestarts {
+		drainableConditions = append(drainableConditions, string(consts.FrequentKubeletRestart))
+	}
+
+	if oc.FrequentContainerdRestarts {
+		drainableConditions = append(drainableConditions, string(consts.FrequentContainerdRestart))
+	}
+
+	if oc.FsCorrupt {
+		drainableConditions = append(drainableConditions, string(consts.FileSystemCorruptionProblem))
 	}
 
 	return drainableConditions

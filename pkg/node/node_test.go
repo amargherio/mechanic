@@ -3,8 +3,9 @@ package node
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/amargherio/mechanic/internal/config"
@@ -84,10 +85,11 @@ func TestCordonNode(t *testing.T) {
 			}
 
 			state := appstate.State{
-				HasEventScheduled: false,
-				IsCordoned:        false,
-				IsDrained:         false,
-				ShouldDrain:       false,
+				HasDrainableCondition:     false,
+				ConditionIsScheduledEvent: false,
+				IsCordoned:                false,
+				IsDrained:                 false,
+				ShouldDrain:               false,
 			}
 
 			vals := config.ContextValues{
@@ -141,10 +143,11 @@ func TestDrainNode(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			state := appstate.State{
-				HasEventScheduled: true,
-				IsCordoned:        true,
-				IsDrained:         false,
-				ShouldDrain:       true,
+				HasDrainableCondition:     true,
+				ConditionIsScheduledEvent: false,
+				IsCordoned:                true,
+				IsDrained:                 false,
+				ShouldDrain:               true,
 			}
 
 			node := &v1.Node{
@@ -191,12 +194,12 @@ func TestValidateCordon(t *testing.T) {
 				n.Spec.Unschedulable = true
 			},
 			inputState: &appstate.State{
-				HasEventScheduled: true,
-				IsCordoned:        false,
+				HasDrainableCondition: true,
+				IsCordoned:            false,
 			},
 			expectedState: &appstate.State{
-				HasEventScheduled: true,
-				IsCordoned:        true,
+				HasDrainableCondition: true,
+				IsCordoned:            true,
 			},
 			expectedNode: &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
@@ -211,12 +214,12 @@ func TestValidateCordon(t *testing.T) {
 				node.Spec.Unschedulable = false
 			},
 			inputState: &appstate.State{
-				HasEventScheduled: true,
-				IsCordoned:        true,
+				HasDrainableCondition: true,
+				IsCordoned:            true,
 			},
 			expectedState: &appstate.State{
-				HasEventScheduled: true,
-				IsCordoned:        true,
+				HasDrainableCondition: true,
+				IsCordoned:            true,
 			},
 			expectedNode: &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
@@ -231,16 +234,16 @@ func TestValidateCordon(t *testing.T) {
 				node.Spec.Unschedulable = true
 			},
 			expectedState: &appstate.State{
-				HasEventScheduled: false,
-				IsCordoned:        false,
+				HasDrainableCondition: false,
+				IsCordoned:            false,
 			},
 			expectedNode: &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
 				Spec:       v1.NodeSpec{Unschedulable: true},
 			},
 			inputState: &appstate.State{
-				HasEventScheduled: false,
-				IsCordoned:        false,
+				HasDrainableCondition: false,
+				IsCordoned:            false,
 			},
 		},
 		{
@@ -250,16 +253,16 @@ func TestValidateCordon(t *testing.T) {
 				node.Spec.Unschedulable = true
 			},
 			expectedState: &appstate.State{
-				HasEventScheduled: false,
-				IsCordoned:        false,
+				HasDrainableCondition: false,
+				IsCordoned:            false,
 			},
 			expectedNode: &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
 				Spec:       v1.NodeSpec{Unschedulable: false},
 			},
 			inputState: &appstate.State{
-				HasEventScheduled: false,
-				IsCordoned:        false,
+				HasDrainableCondition: false,
+				IsCordoned:            false,
 			},
 		},
 		{
@@ -269,12 +272,12 @@ func TestValidateCordon(t *testing.T) {
 				node.Spec.Unschedulable = false
 			},
 			inputState: &appstate.State{
-				HasEventScheduled: false,
-				IsCordoned:        true,
+				HasDrainableCondition: false,
+				IsCordoned:            true,
 			},
 			expectedState: &appstate.State{
-				HasEventScheduled: false,
-				IsCordoned:        false,
+				HasDrainableCondition: false,
+				IsCordoned:            false,
 			},
 			expectedNode: &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
@@ -287,12 +290,12 @@ func TestValidateCordon(t *testing.T) {
 				node.Spec.Unschedulable = false
 			},
 			inputState: &appstate.State{
-				HasEventScheduled: false,
-				IsCordoned:        false,
+				HasDrainableCondition: false,
+				IsCordoned:            false,
 			},
 			expectedState: &appstate.State{
-				HasEventScheduled: false,
-				IsCordoned:        false,
+				HasDrainableCondition: false,
+				IsCordoned:            false,
 			},
 			expectedNode: &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
@@ -306,12 +309,12 @@ func TestValidateCordon(t *testing.T) {
 				node.Spec.Unschedulable = true
 			},
 			inputState: &appstate.State{
-				HasEventScheduled: false,
-				IsCordoned:        true,
+				HasDrainableCondition: false,
+				IsCordoned:            true,
 			},
 			expectedState: &appstate.State{
-				HasEventScheduled: false,
-				IsCordoned:        false,
+				HasDrainableCondition: false,
+				IsCordoned:            false,
 			},
 			expectedNode: &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
@@ -327,16 +330,16 @@ func TestValidateCordon(t *testing.T) {
 				node.Spec.Unschedulable = false
 			},
 			inputState: &appstate.State{
-				HasEventScheduled: false,
-				IsCordoned:        true,
-				IsDrained:         true,
-				ShouldDrain:       true,
+				HasDrainableCondition: false,
+				IsCordoned:            true,
+				IsDrained:             true,
+				ShouldDrain:           true,
 			},
 			expectedState: &appstate.State{
-				HasEventScheduled: false,
-				IsCordoned:        false,
-				IsDrained:         false,
-				ShouldDrain:       false,
+				HasDrainableCondition: false,
+				IsCordoned:            false,
+				IsDrained:             false,
+				ShouldDrain:           false,
 			},
 			expectedNode: &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
@@ -390,9 +393,10 @@ func TestCheckNodeConditions(t *testing.T) {
 	log := logger.Sugar()
 
 	tests := []struct {
-		name             string
-		prepNodeFunc     func(*v1.Node)
-		expectedResponse bool
+		name                string
+		prepNodeFunc        func(*v1.Node)
+		expectedDrainable   bool
+		expectedEventStatus bool
 	}{
 		{
 			name: "node has VMScheduledEvent",
@@ -402,7 +406,8 @@ func TestCheckNodeConditions(t *testing.T) {
 					Status: v1.ConditionTrue,
 				})
 			},
-			expectedResponse: true,
+			expectedDrainable:   true,
+			expectedEventStatus: true,
 		},
 		{
 			name: "node has FreezeScheduled",
@@ -412,7 +417,8 @@ func TestCheckNodeConditions(t *testing.T) {
 					Status: v1.ConditionTrue,
 				})
 			},
-			expectedResponse: true,
+			expectedDrainable:   true,
+			expectedEventStatus: true,
 		},
 		{
 			name: "node has RebootScheduled",
@@ -422,7 +428,8 @@ func TestCheckNodeConditions(t *testing.T) {
 					Status: v1.ConditionTrue,
 				})
 			},
-			expectedResponse: true,
+			expectedDrainable:   true,
+			expectedEventStatus: true,
 		},
 		{
 			name: "node has RedeployScheduled",
@@ -432,7 +439,8 @@ func TestCheckNodeConditions(t *testing.T) {
 					Status: v1.ConditionTrue,
 				})
 			},
-			expectedResponse: true,
+			expectedDrainable:   true,
+			expectedEventStatus: true,
 		},
 		{
 			name: "node has PreemptScheduled",
@@ -442,7 +450,8 @@ func TestCheckNodeConditions(t *testing.T) {
 					Status: v1.ConditionTrue,
 				})
 			},
-			expectedResponse: true,
+			expectedDrainable:   true,
+			expectedEventStatus: true,
 		},
 		{
 			name: "node has TerminateScheduled",
@@ -452,13 +461,81 @@ func TestCheckNodeConditions(t *testing.T) {
 					Status: v1.ConditionTrue,
 				})
 			},
-			expectedResponse: true,
+			expectedDrainable:   true,
+			expectedEventStatus: true,
+		},
+		{
+			name: "node has KubeletProblem",
+			prepNodeFunc: func(n *v1.Node) {
+				n.Status.Conditions = append(n.Status.Conditions, v1.NodeCondition{
+					Type:   v1.NodeConditionType("KubeletProblem"),
+					Status: v1.ConditionTrue,
+				})
+			},
+			expectedDrainable:   true,
+			expectedEventStatus: false,
+		},
+		{
+			name: "node has KernelDeadlock",
+			prepNodeFunc: func(n *v1.Node) {
+				n.Status.Conditions = append(n.Status.Conditions, v1.NodeCondition{
+					Type:   v1.NodeConditionType("KernelDeadlock"),
+					Status: v1.ConditionTrue,
+				})
+			},
+			expectedDrainable:   true,
+			expectedEventStatus: false,
+		},
+		{
+			name: "node has FrequentKubeletRestart",
+			prepNodeFunc: func(n *v1.Node) {
+				n.Status.Conditions = append(n.Status.Conditions, v1.NodeCondition{
+					Type:   v1.NodeConditionType("FrequentKubeletRestart"),
+					Status: v1.ConditionTrue,
+				})
+			},
+			expectedDrainable:   true,
+			expectedEventStatus: false,
+		},
+		{
+			name: "node has FrequentContainerdRestart",
+			prepNodeFunc: func(n *v1.Node) {
+				n.Status.Conditions = append(n.Status.Conditions, v1.NodeCondition{
+					Type:   v1.NodeConditionType("FrequentContainerdRestart"),
+					Status: v1.ConditionTrue,
+				})
+			},
+			expectedDrainable:   true,
+			expectedEventStatus: false,
+		},
+		{
+			name: "node has FileSystemCorruptionProblem",
+			prepNodeFunc: func(n *v1.Node) {
+				n.Status.Conditions = append(n.Status.Conditions, v1.NodeCondition{
+					Type:   v1.NodeConditionType("FileSystemCorruptionProblem"),
+					Status: v1.ConditionTrue,
+				})
+			},
+			expectedDrainable:   true,
+			expectedEventStatus: false,
+		},
+		{
+			name: "node condition is False",
+			prepNodeFunc: func(n *v1.Node) {
+				n.Status.Conditions = append(n.Status.Conditions, v1.NodeCondition{
+					Type:   v1.NodeConditionType("KubeletProblem"),
+					Status: v1.ConditionFalse,
+				})
+			},
+			expectedDrainable:   false,
+			expectedEventStatus: false,
 		},
 		{
 			name: "node has no scheduled events",
 			prepNodeFunc: func(n *v1.Node) {
 			},
-			expectedResponse: false,
+			expectedDrainable:   false,
+			expectedEventStatus: false,
 		},
 	}
 
@@ -473,19 +550,33 @@ func TestCheckNodeConditions(t *testing.T) {
 			vals := config.ContextValues{
 				Logger: log,
 				State: &appstate.State{
-					HasEventScheduled: false, IsCordoned: false, ShouldDrain: false, IsDrained: false},
+					HasDrainableCondition:     false,
+					ConditionIsScheduledEvent: false,
+					IsCordoned:                false,
+					ShouldDrain:               false,
+					IsDrained:                 false,
+				},
 			}
 			ctx := context.WithValue(context.Background(), "values", &vals)
 
 			tc.prepNodeFunc(node)
-			response := CheckNodeConditions(ctx, node, config.DrainConditions{
-				DrainOnFreeze:    true,
-				DrainOnReboot:    true,
-				DrainOnRedeploy:  true,
-				DrainOnPreempt:   true,
-				DrainOnTerminate: true,
-			})
-			assert.Equal(t, tc.expectedResponse, response, "Expected response to be %v, got %v", tc.expectedResponse, response)
+			drainable, eventScheduled := CheckNodeConditions(ctx, node, &config.ScheduledEventDrainConditions{
+				Freeze:    true,
+				Reboot:    true,
+				Redeploy:  true,
+				Preempt:   true,
+				Terminate: true,
+			},
+				&config.OptionalDrainConditions{
+					KubeletProblem:             true,
+					KernelDeadlock:             true,
+					FrequentKubeletRestarts:    true,
+					FrequentContainerdRestarts: true,
+					FsCorrupt:                  true,
+				})
+
+			assert.Equal(t, tc.expectedDrainable, drainable, "Expected drainable to be %v, got %v", tc.expectedDrainable, drainable)
+			assert.Equal(t, tc.expectedEventStatus, eventScheduled, "Expected event scheduled to be %v, got %v", tc.expectedEventStatus, eventScheduled)
 		})
 	}
 }

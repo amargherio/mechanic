@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"go.opentelemetry.io/otel"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/otel"
 
 	"github.com/amargherio/mechanic/internal/config"
 	"github.com/amargherio/mechanic/pkg/consts"
@@ -60,7 +61,7 @@ type IMDS interface {
 type IMDSClient struct{}
 
 // CheckIfDrainRequired checks if the node should be drained based on scheduled events from IMDS.
-func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node, drainConditions *config.DrainConditions) (bool, error) {
+func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node, scheduledDrainConditions *config.ScheduledEventDrainConditions, optDrainConditions *config.OptionalDrainConditions) (bool, error) {
 	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/imds")
 	ctx, span := tracer.Start(ctx, "CheckIfDrainRequired")
 	defer span.End()
@@ -102,12 +103,12 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node, drainCond
 	}
 
 	// drainable conditions is a map of boolean values for each node condition
-	drainableConditions := map[ScheduledEventType]bool{
-		Reboot:    drainConditions.DrainOnReboot,
-		Redeploy:  drainConditions.DrainOnRedeploy,
-		Preempt:   drainConditions.DrainOnPreempt,
-		Terminate: drainConditions.DrainOnTerminate,
-		Freeze:    drainConditions.DrainOnFreeze,
+	eventDrainableConditions := map[ScheduledEventType]bool{
+		Reboot:    scheduledDrainConditions.Reboot,
+		Redeploy:  scheduledDrainConditions.Redeploy,
+		Preempt:   scheduledDrainConditions.Preempt,
+		Terminate: scheduledDrainConditions.Terminate,
+		Freeze:    scheduledDrainConditions.Freeze,
 	}
 
 	// for each event in the scheduled events response, check if the event is for the current instance
@@ -118,13 +119,13 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node, drainCond
 		}
 
 		if impacted {
-			if event.Type != Freeze && drainableConditions[event.Type] {
+			if event.Type != Freeze && eventDrainableConditions[event.Type] {
 				// this is all non-freeze event types since we need to do special things with freezes
 				log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId, "traceCtx", ctx)
 				shouldDrain = true
 				return shouldDrain, nil
 			} else if event.Type == Freeze {
-				if !drainableConditions[event.Type] {
+				if !eventDrainableConditions[event.Type] {
 					// check if it's an LM and not a regular freeze. if so, proceed with the drain
 					// TODO: Freeze event types also indicate an LM which could be critical...how do we differentiate? using description is a poor workaround
 					if strings.Contains(event.Description, "memory-preserving Live Migration") {
@@ -144,6 +145,77 @@ func CheckIfDrainRequired(ctx context.Context, ic IMDS, node *v1.Node, drainCond
 				}
 			} else {
 				log.Debugw("Found an event that targets current node, but does not require draining", "event", event, "eventId", event.EventId, "traceCtx", ctx)
+			}
+		}
+	}
+	log.Infow("Did not find any events that require draining the node", "node", node.Name, "traceCtx", ctx)
+	return shouldDrain, nil
+}
+
+func CheckIfFreezeOrLiveMigration(ctx context.Context, ic IMDS, node *v1.Node, eventDrainConditions *config.ScheduledEventDrainConditions) (bool, error) {
+	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/imds")
+	ctx, span := tracer.Start(ctx, "CheckIfDrainRequired")
+	defer span.End()
+
+	vals := ctx.Value("values").(*config.ContextValues)
+	log := vals.Logger
+
+	log.Infow("Checking if drain is required for node", "node", node.Name, "traceCtx", ctx)
+	shouldDrain := false // setting the default drain response to false
+
+	// query IMDS to get scheduled event data
+	var resp ScheduledEventsResponse
+	var err error
+	maxRetries := 3
+	baseDelay := 2 * time.Second
+	maxDelay := 10 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		resp, err = ic.QueryIMDS(ctx)
+		if err == nil {
+			break
+		}
+		if err == io.EOF {
+			delay := baseDelay * (1 << i) // exponential backoff
+			if delay > maxDelay {
+				delay = maxDelay
+			}
+			log.Warnw("Received io.EOF error, retrying...", "attempt", i+1, "delay", delay, "traceCtx", ctx)
+			time.Sleep(delay)
+			continue
+		}
+		log.Errorw("Failed to query IMDS", "error", err, "traceCtx", ctx)
+		return shouldDrain, err
+	}
+
+	if len(resp.Events) == 0 {
+		log.Debugw("No scheduled events found", "traceCtx", ctx)
+		return shouldDrain, err
+	}
+
+	// we already know we have a drainable condition, but we haven't yet determined if the difference between a freeze and a live migration changes
+	// the drain decision. so we need to check if the event is a freeze or live migration
+	//
+	// for each event in the scheduled events response, check if the event is for the current instance
+	for _, event := range resp.Events {
+		impacted, err := isNodeImpacted(ctx, node, event)
+		if err != nil {
+			return shouldDrain, err
+		}
+
+		if impacted {
+			if event.Type == Freeze {
+				// check if it's an LM and not a regular freeze. if so, proceed with the drain
+				// TODO: Freeze event types also indicate an LM which could be critical...how do we differentiate? using description is a poor workaround
+				if strings.Contains(event.Description, "memory-preserving Live Migration") && eventDrainConditions.LiveMigration {
+					log.Infow("Found event that requires draining the node", "event", event, "eventId", event.EventId, "traceCtx", ctx)
+					shouldDrain = true
+					return shouldDrain, nil
+				} else {
+					// not draining for this type of freeze
+					log.Debugw("Found a freeze event that does not require draining", "event", event, "eventId", event.EventId, "traceCtx", ctx)
+					continue
+				}
 			}
 		}
 	}

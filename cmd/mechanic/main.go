@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/amargherio/mechanic/internal/config"
 	"github.com/amargherio/mechanic/internal/logging"
@@ -20,7 +22,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/kubectl/pkg/scheme"
-	"os"
 )
 
 func main() {
@@ -28,10 +29,11 @@ func main() {
 	var ctx context.Context
 
 	state := appstate.State{
-		HasEventScheduled: false,
-		IsCordoned:        false,
-		IsDrained:         false,
-		ShouldDrain:       false,
+		HasDrainableCondition:     false,
+		ConditionIsScheduledEvent: false,
+		IsCordoned:                false,
+		IsDrained:                 false,
+		ShouldDrain:               false,
 	}
 
 	// tracing bootstrapping
@@ -142,24 +144,38 @@ func main() {
 				"node", node.Name,
 				"traceCtx", ctx)
 
-			state.HasEventScheduled = n.CheckNodeConditions(ctx, node, cfg.DrainConditions)
+			state.HasDrainableCondition, state.ConditionIsScheduledEvent = n.CheckNodeConditions(ctx, node, &cfg.ScheduledEventDrainConditions, &cfg.OptionalDrainConditions)
 
 			log.Infow("Finished checking node conditions and current state.", "node", node.Name, "state", &state, "traceCtx", ctx)
 
-			if state.HasEventScheduled {
+			if state.HasDrainableCondition {
 				// early return if the node is already cordoned and drained
 				if state.IsCordoned && state.IsDrained {
 					log.Infow("Node is already cordoned and drained, no action required", "node", node.Name, "state", &state, "traceCtx", ctx)
 					return
 				}
 
-				// query IMDS for more information on the scheduled event
-				b, err := imds.CheckIfDrainRequired(ctx, ic, node, &cfg.DrainConditions)
-				if err != nil {
-					log.Errorw("Failed to query IMDS for scheduled event information. Unable to determine if drain is required.", "error", err, "state", &state, "traceCtx", ctx)
-					return
+				state.ShouldDrain = true // setting the drain decision to true unless we can overturn it
+
+				// if the condition is a scheduled event, we need to check and differentiate between a freeze event and a live migration
+				if state.ConditionIsScheduledEvent {
+					log.Infow("Node has a scheduled event condition, checking for freeze or live migration", "node", node.Name, "state", &state, "traceCtx", ctx)
+					isLM, err := imds.CheckIfFreezeOrLiveMigration(ctx, ic, node, &cfg.ScheduledEventDrainConditions)
+					if err != nil {
+						log.Errorw("Failed to query IMDS for scheduled event information. Unable to determine if drain is required.", "error", err, "state", &state, "traceCtx", ctx)
+						return
+					}
+
+					if !isLM && !cfg.ScheduledEventDrainConditions.Freeze {
+						log.Infow("Node has a freeze event that is not a live migration. We don't currently drain for freeze events, so setting our drain decision to false.", "node", node.Name, "state", &state, "traceCtx", ctx)
+						state.ShouldDrain = false
+					} else if isLM && !cfg.ScheduledEventDrainConditions.LiveMigration {
+						log.Infow("Node has a live migration event but draining for live migration is disabled. Setting our drain decision to false.", "node", node.Name, "state", &state, "traceCtx", ctx)
+						state.ShouldDrain = false
+					} else {
+						log.Infow("Node has a scheduled event condition that is a live migration. We will drain for this event.", "node", node.Name, "state", &state, "traceCtx", ctx)
+					}
 				}
-				state.ShouldDrain = b
 
 				if state.ShouldDrain {
 					// cordon the node, then drain
