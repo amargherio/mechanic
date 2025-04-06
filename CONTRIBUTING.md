@@ -3,8 +3,9 @@
 There's a few different ways to contribute to the mechanic project.
 
 ## Documentation work
-If you're interested in helping to improve the documentation, you can check for potential open issues by filtering on 
-the `documentation` label. If you don't see an issue that you think should be addressed, feel free to open a new issue 
+
+If you're interested in helping to improve the documentation, you can check for potential open issues by filtering on
+the `documentation` label. If you don't see an issue that you think should be addressed, feel free to open a new issue
 with the `documentation` label and a description of what you'd like to see updated.
 
 If that's something you're interested in working on, feel free to submit a PR with the changes.
