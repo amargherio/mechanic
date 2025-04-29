@@ -23,7 +23,7 @@ spec:
       hostPID: true # Facilitates entering the host mount namespace via init
       containers:
       - name: mechanic
-        image: ghcr.io/amargherio/mechanic:v2025.1-windows2022
+        image: ghcr.io/amargherio/mechanic:v2025.4-windows2022
         imagePullPolicy: Always
         securityContext:
           privileged: true # Gives permission to nsenter /proc/1/ns/mnt

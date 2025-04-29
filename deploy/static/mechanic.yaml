@@ -92,13 +92,21 @@ subjects:
 apiVersion: v1
 data:
   mechanic.yaml: |
-    DRAIN_ON_FREEZE: true
-    DRAIN_ON_REBOOT: true
-    DRAIN_ON_REDEPLOY: false
-    DRAIN_ON_PREEMPT: true
-    DRAIN_ON_TERMINATE: true
-    RUNTIME_ENV: prod
-    ENABLE_TRACING: true
+    vmEvents:
+      freeze: false
+      reboot: true
+      redeploy: false
+      preempt: true
+      terminate: true
+      liveMigration: true
+    optional:
+      kernelDeadlock: true
+      kubeletProblem: true
+      frequentKubeletRestarts: true
+      frequentContainerdRestarts: true
+      fsCorrupt: true
+    runtimeEnv: prod
+    enableTracing: true
 kind: ConfigMap
 metadata:
   name: mechanic
@@ -124,7 +132,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.1-distroless
+        image: ghcr.io/amargherio/mechanic:v2025.4-distroless
         imagePullPolicy: Always
         name: mechanic
         resources:
@@ -172,7 +180,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.1-windows2019
+        image: ghcr.io/amargherio/mechanic:v2025.4-windows2019
         imagePullPolicy: Always
         name: mechanic
         resources:
@@ -221,7 +229,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.1-windows2022
+        image: ghcr.io/amargherio/mechanic:v2025.4-windows2022
         imagePullPolicy: Always
         name: mechanic
         resources:
