@@ -3,12 +3,21 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+and this project adheres to [Calendar Versioning](https://calver.org).
+
+## [2025.4] - 2025-04-21
+
+### <!-- 0 -->🚀 Features
+- Adding support for optional drain conditions (#73)
+
+### <!-- 3 -->📚 Documentation
+- Updating README and fixing markdown formatting in CONTRIBUTING
 
 ## [2025.1] - 2025-01-10
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks
 - Bumping the image version in yamls for 2025.1
+- Bumping version in go.mod
 
 ## [1.0.0] - 2024-12-27
 
@@ -133,6 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adding linting config
 - Updating deploy yamls to move mechanic DS and service account into their own namespace
 
+[2025.4]: https://github.com///compare/v2025.1..v2025.4
 [2025.1]: https://github.com///compare/v1.0.0..v2025.1
 [1.0.0]: https://github.com///compare/v0.2.0..v1.0.0
 [0.2.0]: https://github.com///compare/v0.1.2..v0.2.0
