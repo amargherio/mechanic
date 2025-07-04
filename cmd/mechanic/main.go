@@ -31,6 +31,9 @@ func main() {
 	var logger *zap.Logger
 	var ctx context.Context
 
+	// Create a properly seeded random source for jitter values
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
 	state := appstate.State{
 		HasDrainableCondition:     false,
 		ConditionIsScheduledEvent: false,
@@ -121,10 +124,16 @@ func main() {
 			select {
 			case <-ticker.C:
 				// Add jitter of ±0.5 seconds
-				jitter := time.Duration((rand.Float64() - 0.5) * float64(time.Second))
-				time.Sleep(jitter)
+				jitter := time.Duration((rng.Float64() - 0.5) * float64(time.Second))
 
-				handleIMDSCheck(ctx, clientset, &cfg, &state, &ic, recorder, tracer, log)
+				// Use time.After instead of time.Sleep to respect shutdown signals
+				select {
+				case <-time.After(jitter):
+					handleIMDSCheck(ctx, clientset, &cfg, &state, &ic, recorder, tracer, log)
+				case <-ctx.Done():
+					log.Infow("Context cancelled during jitter delay, shutting down IMDS monitoring", "node", cfg.NodeName)
+					return
+				}
 			case <-ctx.Done():
 				log.Infow("Context cancelled, shutting down IMDS monitoring", "node", cfg.NodeName)
 				return
