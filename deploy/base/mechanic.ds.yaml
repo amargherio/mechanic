@@ -111,6 +111,7 @@ data:
       fsCorrupt: true
     runtimeEnv: prod
     enableTracing: true
+    bypassNodeProblemDetector: false
 ---
 apiVersion: apps/v1
 kind: DaemonSet
