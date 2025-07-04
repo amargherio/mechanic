@@ -33,10 +33,11 @@ type OptionalDrainConditions struct {
 
 // MechanicConfig represents the full configuration structure from mechanic.yaml
 type MechanicConfig struct {
-	ScheduledEvents ScheduledEventDrainConditions `mapstructure:"scheduledEvents"`
-	Optional        OptionalDrainConditions       `mapstructure:"optionalConditions"`
-	RuntimeEnv      string                        `mapstructure:"runtimeEnv"`
-	EnableTracing   bool                          `mapstructure:"enableTracing"`
+	ScheduledEvents           ScheduledEventDrainConditions `mapstructure:"scheduledEvents"`
+	Optional                  OptionalDrainConditions       `mapstructure:"optionalConditions"`
+	RuntimeEnv                string                        `mapstructure:"runtimeEnv"`
+	EnableTracing             bool                          `mapstructure:"enableTracing"`
+	BypassNodeProblemDetector bool                          `mapstructure:"bypassNodeProblemDetector"`
 }
 
 // ContextValues is a struct that holds the logger and state of the application for use in the shared application context
@@ -54,6 +55,7 @@ type Config struct {
 	KubeConfig                    *rest.Config
 	NodeName                      string
 	EnableTracing                 bool
+	BypassNodeProblemDetector     bool
 }
 
 func ReadConfiguration(ctx context.Context) (Config, error) {
@@ -81,8 +83,9 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 			FrequentContainerdRestarts: false,
 			FsCorrupt:                  false,
 		},
-		RuntimeEnv:    "prod",
-		EnableTracing: true,
+		RuntimeEnv:                "prod",
+		EnableTracing:             true,
+		BypassNodeProblemDetector: false,
 	}
 
 	// Set up Viper to find and read the config file
@@ -122,6 +125,7 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 		NodeName:                      config.GetString("NODE_NAME"),
 		EnableTracing:                 mechanicConfig.EnableTracing,
 		RuntimeEnv:                    mechanicConfig.RuntimeEnv,
+		BypassNodeProblemDetector:     mechanicConfig.BypassNodeProblemDetector,
 	}, nil
 }
 
