@@ -19,8 +19,8 @@ const PollingInterval = 10 * time.Second
 
 // calculateJitteredInterval calculates the next polling interval with jitter
 func calculateJitteredInterval(rng *rand.Rand) time.Duration {
-	// Add jitter of ±10% of the polling interval (±1 second for 10s interval)
-	jitter := time.Duration((rng.Float64() - 0.5) * 0.2 * float64(PollingInterval))
+	// Add jitter of ±0.5 seconds to the polling interval
+	jitter := time.Duration((rng.Float64() - 0.5) * float64(time.Second) * 0.5)
 	return PollingInterval + jitter
 }
 
