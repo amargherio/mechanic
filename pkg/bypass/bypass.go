@@ -24,7 +24,7 @@ func calculateJitteredInterval(rng *rand.Rand) time.Duration {
 	return PollingInterval + jitter
 }
 
-func InitiateBypassLooper(ctx context.Context, clientset *kubernetes.Clientset, cfg config.Config, state *appstate.State, ic *imds.IMDSClient, recorder record.EventRecorder, stop <-chan struct{}) {
+func InitiateBypassLooper(ctx context.Context, clientset kubernetes.Interface, cfg config.Config, state *appstate.State, ic *imds.IMDSClient, recorder record.EventRecorder, stop <-chan struct{}) {
 	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/bypass")
 	ctx, span := tracer.Start(ctx, "InitiateBypassLooper")
 	defer span.End()

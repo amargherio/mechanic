@@ -109,7 +109,8 @@ func main() {
 
 	// if BypassNodeProblemDetector is true, we don't set up the informer for node updates
 	if cfg.BypassNodeProblemDetector {
-		bypass.InitiateBypassLooper(ctx, clientset, cfg, &state, &ic, recorder, stop)
+		go bypass.InitiateBypassLooper(ctx, clientset, cfg, &state, &ic, recorder, stop)
+		<-stop
 	} else {
 
 		log.Info("Building the informer factory for our node informer client.")
