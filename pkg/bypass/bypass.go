@@ -61,11 +61,11 @@ func InitiateBypassLooper(ctx context.Context, clientset kubernetes.Interface, c
 		case <-timer.C:
 			// Perform IMDS check
 			handleIMDSCheck(ctx, clientset, &cfg, state, ic, recorder)
-			
+
 			// Calculate next jittered interval and reset timer
 			nextInterval = calculateJitteredInterval(rng)
 			timer.Reset(nextInterval)
-			
+
 		case <-ctx.Done():
 			log.Infow("Context cancelled, shutting down IMDS monitoring", "node", cfg.NodeName)
 			return
@@ -86,7 +86,7 @@ func handleIMDSCheck(ctx context.Context, clientset kubernetes.Interface, cfg *c
 	log := vals.Logger
 
 	// lock the state object so we know we have it exclusively for this function
-	didLock := state.Lock.TryLock()
+	didLock := state.LockState()
 	if !didLock {
 		log.Warnw("Failed to lock state object, skipping IMDS check",
 			"node", cfg.NodeName,
@@ -97,7 +97,7 @@ func handleIMDSCheck(ctx context.Context, clientset kubernetes.Interface, cfg *c
 		"state", state,
 		"traceCtx", ctx)
 	defer func() {
-		state.Lock.Unlock()
+		state.UnlockState()
 		log.Debugw("Unlocked state object after IMDS check",
 			"node", cfg.NodeName,
 			"state", state,

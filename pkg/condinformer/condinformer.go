@@ -26,7 +26,7 @@ func HandleNodeUpdate(ctx context.Context, clientset kubernetes.Interface, cfg *
 	//
 	// todo: this may need cleanup - there's no reads to state outside of processing an node update but it would be good to
 	// 	 ensure that we don't end up needing a RWMutex instead.
-	didLock := state.Lock.TryLock()
+	didLock := state.LockState()
 	if !didLock {
 		log.Warnw("Failed to lock state object, skipping update",
 			"node", cfg.NodeName,
@@ -37,7 +37,7 @@ func HandleNodeUpdate(ctx context.Context, clientset kubernetes.Interface, cfg *
 		"state", &state,
 		"traceCtx", ctx)
 	defer func() {
-		state.Lock.Unlock()
+		state.UnlockState()
 		log.Debugw("Unlocked state object",
 			"node", cfg.NodeName,
 			"state", &state,
