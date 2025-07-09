@@ -108,6 +108,10 @@ func main() {
 
 	state.IsCordoned = node.Spec.Unschedulable
 
+	// Create stop channel for graceful shutdown
+	stop := make(chan struct{})
+	defer close(stop)
+
 	// if BypassNodeProblemDetector is true, we don't set up the informer for node updates
 	if cfg.BypassNodeProblemDetector {
 		log.Infow("Bypassing Node Problem Detector, not setting up informer and querying IMDS directly", "node", cfg.NodeName)
@@ -133,9 +137,15 @@ func main() {
 				case <-ctx.Done():
 					log.Infow("Context cancelled during jitter delay, shutting down IMDS monitoring", "node", cfg.NodeName)
 					return
+				case <-stop:
+					log.Infow("Stop signal received during jitter delay, shutting down IMDS monitoring", "node", cfg.NodeName)
+					return
 				}
 			case <-ctx.Done():
 				log.Infow("Context cancelled, shutting down IMDS monitoring", "node", cfg.NodeName)
+				return
+			case <-stop:
+				log.Infow("Stop signal received, shutting down IMDS monitoring", "node", cfg.NodeName)
 				return
 			}
 		}
@@ -216,57 +226,12 @@ func main() {
 						}
 					}
 
-					if state.ShouldDrain {
-						// cordon the node, then drain
-						log.Infow("A drain has been determined as appropriate for the node", "node", node.Name, "state", &state, "traceCtx", ctx)
-
-						// check state and attempt to cordon if required
-						if state.IsCordoned {
-							log.Infow("Node is already cordoned, skipping cordon", "node", node.Name, "state", &state, "traceCtx", ctx)
-							recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s is already cordoned, no need to attempt a cordon.", node.Name)
-						} else {
-							b, err := n.CordonNode(ctx, clientset, node)
-							if err != nil {
-								log.Errorw("Failed to cordon node", "node", node.Name, "error", err, "traceCtx", ctx)
-								recorder.Eventf(node, v1.EventTypeWarning, "CordonNode", "Failed to cordon node %s", node.Name)
-							} else {
-								state.IsCordoned = b
-								log.Infow("Node cordoned", "node", node.Name, "state", &state, "traceCtx", ctx)
-								recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s cordoned by mechanic", node.Name)
-							}
-						}
-
-						if state.IsDrained {
-							log.Infow("Node is already drained, skipping drain", "node", node.Name, "traceCtx", ctx)
-						} else {
-							b, err := n.DrainNode(ctx, clientset, node)
-							if err != nil {
-								log.Errorw("Failed to drain node", "node", node.Name, "error", err, "traceCtx", ctx)
-								recorder.Eventf(node, v1.EventTypeWarning, "DrainNode", "Failed to drain node %s", node.Name)
-							} else {
-								state.IsDrained = b
-								log.Infow("Node drain completed", "node", node.Name, "state", &state, "traceCtx", ctx)
-								recorder.Eventf(node, v1.EventTypeNormal, "DrainNode", "Node %s drained by mechanic", node.Name)
-							}
-						}
-					}
+					handleNodeCordonAndDrain(ctx, clientset, node, &state, recorder, tracer, log)
 				}
-				// finished the event checking, cordon, and drain logic. checking for unneeded cordons now. grab an updated
-				// node object that should reflect all of our changes and use that for the ValidateCordon
-				log.Infow("Checking for unneeded cordon", "node", node.Name, "state", &state, "traceCtx", ctx)
-				updated, err := clientset.CoreV1().Nodes().Get(ctx, node.Name, metav1.GetOptions{})
-				if err != nil {
-					log.Errorw("Failed to get updated node object", "node", node.Name, "error", err, "state", &state, "traceCtx", ctx)
-					return
-				}
-				n.ValidateCordon(ctx, clientset, updated, recorder)
 
 				log.Infow("Finished processing node update", "node", node.Name, "state", &state, "traceCtx", ctx)
 			},
 		})
-
-		stop := make(chan struct{})
-		defer close(stop)
 
 		// start the informer
 		log.Infow("Starting the informer", "node", cfg.NodeName)
@@ -280,6 +245,63 @@ func main() {
 		// block main process
 		<-stop
 	}
+}
+
+// handleNodeCordonAndDrain handles the shared logic for cordoning and draining a node
+func handleNodeCordonAndDrain(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, state *appstate.State, recorder record.EventRecorder, tracer trace.Tracer, log *zap.SugaredLogger) {
+	ctx, span := tracer.Start(ctx, "handleNodeCordonAndDrain")
+	defer span.End()
+
+	if state.HasDrainableCondition && state.ShouldDrain {
+		// early return if the node is already cordoned and drained
+		if state.IsCordoned && state.IsDrained {
+			log.Infow("Node is already cordoned and drained, no action required", "node", node.Name, "state", state, "traceCtx", ctx)
+			return
+		}
+
+		log.Infow("Determined drain is required for the node", "node", node.Name, "state", state, "traceCtx", ctx)
+
+		// check state and attempt to cordon if required
+		if state.IsCordoned {
+			log.Infow("Node is already cordoned, skipping cordon", "node", node.Name, "state", state, "traceCtx", ctx)
+			recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s is already cordoned, no need to attempt a cordon.", node.Name)
+		} else {
+			b, err := n.CordonNode(ctx, clientset, node)
+			if err != nil {
+				log.Errorw("Failed to cordon node", "node", node.Name, "error", err, "traceCtx", ctx)
+				recorder.Eventf(node, v1.EventTypeWarning, "CordonNode", "Failed to cordon node %s", node.Name)
+			} else {
+				state.IsCordoned = b
+				log.Infow("Node cordoned", "node", node.Name, "state", state, "traceCtx", ctx)
+				recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s cordoned by mechanic", node.Name)
+			}
+		}
+
+		if state.IsDrained {
+			log.Infow("Node is already drained, skipping drain", "node", node.Name, "traceCtx", ctx)
+		} else {
+			b, err := n.DrainNode(ctx, clientset, node)
+			if err != nil {
+				log.Errorw("Failed to drain node", "node", node.Name, "error", err, "traceCtx", ctx)
+				recorder.Eventf(node, v1.EventTypeWarning, "DrainNode", "Failed to drain node %s", node.Name)
+			} else {
+				state.IsDrained = b
+				log.Infow("Node drain completed", "node", node.Name, "state", state, "traceCtx", ctx)
+				recorder.Eventf(node, v1.EventTypeNormal, "DrainNode", "Node %s drained by mechanic", node.Name)
+			}
+		}
+	}
+
+	// Check for unneeded cordon
+	log.Infow("Checking for unneeded cordon", "node", node.Name, "state", state, "traceCtx", ctx)
+	updated, err := clientset.CoreV1().Nodes().Get(ctx, node.Name, metav1.GetOptions{})
+	if err != nil {
+		log.Errorw("Failed to get updated node object", "node", node.Name, "error", err, "state", state, "traceCtx", ctx)
+		return
+	}
+	n.ValidateCordon(ctx, clientset, updated, recorder)
+
+	log.Infow("Finished processing node cordon and drain", "node", node.Name, "state", state, "traceCtx", ctx)
 }
 
 // handleIMDSCheck performs the IMDS check and node processing logic when bypassing Node Problem Detector
@@ -331,54 +353,5 @@ func handleIMDSCheck(ctx context.Context, clientset kubernetes.Interface, cfg *c
 
 	log.Infow("Finished IMDS check", "node", node.Name, "shouldDrain", shouldDrain, "state", state, "traceCtx", ctx)
 
-	if state.HasDrainableCondition && state.ShouldDrain {
-		// early return if the node is already cordoned and drained
-		if state.IsCordoned && state.IsDrained {
-			log.Infow("Node is already cordoned and drained, no action required", "node", node.Name, "state", state, "traceCtx", ctx)
-			return
-		}
-
-		log.Infow("IMDS check determined drain is required for the node", "node", node.Name, "state", state, "traceCtx", ctx)
-
-		// check state and attempt to cordon if required
-		if state.IsCordoned {
-			log.Infow("Node is already cordoned, skipping cordon", "node", node.Name, "state", state, "traceCtx", ctx)
-			recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s is already cordoned, no need to attempt a cordon.", node.Name)
-		} else {
-			b, err := n.CordonNode(ctx, clientset, node)
-			if err != nil {
-				log.Errorw("Failed to cordon node", "node", node.Name, "error", err, "traceCtx", ctx)
-				recorder.Eventf(node, v1.EventTypeWarning, "CordonNode", "Failed to cordon node %s", node.Name)
-			} else {
-				state.IsCordoned = b
-				log.Infow("Node cordoned", "node", node.Name, "state", state, "traceCtx", ctx)
-				recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s cordoned by mechanic", node.Name)
-			}
-		}
-
-		if state.IsDrained {
-			log.Infow("Node is already drained, skipping drain", "node", node.Name, "traceCtx", ctx)
-		} else {
-			b, err := n.DrainNode(ctx, clientset, node)
-			if err != nil {
-				log.Errorw("Failed to drain node", "node", node.Name, "error", err, "traceCtx", ctx)
-				recorder.Eventf(node, v1.EventTypeWarning, "DrainNode", "Failed to drain node %s", node.Name)
-			} else {
-				state.IsDrained = b
-				log.Infow("Node drain completed", "node", node.Name, "state", state, "traceCtx", ctx)
-				recorder.Eventf(node, v1.EventTypeNormal, "DrainNode", "Node %s drained by mechanic", node.Name)
-			}
-		}
-	}
-
-	// Check for unneeded cordon
-	log.Infow("Checking for unneeded cordon", "node", node.Name, "state", state, "traceCtx", ctx)
-	updated, err := clientset.CoreV1().Nodes().Get(ctx, node.Name, metav1.GetOptions{})
-	if err != nil {
-		log.Errorw("Failed to get updated node object", "node", node.Name, "error", err, "state", state, "traceCtx", ctx)
-		return
-	}
-	n.ValidateCordon(ctx, clientset, updated, recorder)
-
-	log.Infow("Finished processing IMDS check", "node", node.Name, "state", state, "traceCtx", ctx)
+	handleNodeCordonAndDrain(ctx, clientset, node, state, recorder, tracer, log)
 }
