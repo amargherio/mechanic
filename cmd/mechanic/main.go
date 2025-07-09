@@ -3,18 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/amargherio/mechanic/internal/config"
 	"github.com/amargherio/mechanic/internal/logging"
 	"github.com/amargherio/mechanic/internal/tracing"
+	"github.com/amargherio/mechanic/pkg/bypass"
 	"github.com/amargherio/mechanic/pkg/imds"
 	n "github.com/amargherio/mechanic/pkg/node"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	v1 "k8s.io/api/core/v1"
@@ -30,9 +28,6 @@ import (
 func main() {
 	var logger *zap.Logger
 	var ctx context.Context
-
-	// Create a properly seeded random source for jitter values
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	state := appstate.State{
 		HasDrainableCondition:     false,
@@ -114,41 +109,7 @@ func main() {
 
 	// if BypassNodeProblemDetector is true, we don't set up the informer for node updates
 	if cfg.BypassNodeProblemDetector {
-		log.Infow("Bypassing Node Problem Detector, not setting up informer and querying IMDS directly", "node", cfg.NodeName)
-
-		// Create a cancellable context for graceful shutdown
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		// Start periodic IMDS querying with 10s interval and jitter
-		ticker := time.NewTicker(10 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				// Add jitter of ±0.5 seconds
-				jitter := time.Duration((rng.Float64() - 0.5) * float64(time.Second))
-
-				// Use time.After instead of time.Sleep to respect shutdown signals
-				select {
-				case <-time.After(jitter):
-					handleIMDSCheck(ctx, clientset, &cfg, &state, &ic, recorder, tracer, log)
-				case <-ctx.Done():
-					log.Infow("Context cancelled during jitter delay, shutting down IMDS monitoring", "node", cfg.NodeName)
-					return
-				case <-stop:
-					log.Infow("Stop signal received during jitter delay, shutting down IMDS monitoring", "node", cfg.NodeName)
-					return
-				}
-			case <-ctx.Done():
-				log.Infow("Context cancelled, shutting down IMDS monitoring", "node", cfg.NodeName)
-				return
-			case <-stop:
-				log.Infow("Stop signal received, shutting down IMDS monitoring", "node", cfg.NodeName)
-				return
-			}
-		}
+		bypass.InitiateBypassLooper(ctx, clientset, cfg, &state, &ic, recorder, stop)
 	} else {
 
 		log.Info("Building the informer factory for our node informer client.")
@@ -226,7 +187,7 @@ func main() {
 						}
 					}
 
-					handleNodeCordonAndDrain(ctx, clientset, node, &state, recorder, tracer, log)
+					n.HandleNodeCordonAndDrain(ctx, clientset, node, &state, recorder, tracer, log)
 				}
 
 				log.Infow("Finished processing node update", "node", node.Name, "state", &state, "traceCtx", ctx)
@@ -245,113 +206,4 @@ func main() {
 		// block main process
 		<-stop
 	}
-}
-
-// handleNodeCordonAndDrain handles the shared logic for cordoning and draining a node
-func handleNodeCordonAndDrain(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, state *appstate.State, recorder record.EventRecorder, tracer trace.Tracer, log *zap.SugaredLogger) {
-	ctx, span := tracer.Start(ctx, "handleNodeCordonAndDrain")
-	defer span.End()
-
-	if state.HasDrainableCondition && state.ShouldDrain {
-		// early return if the node is already cordoned and drained
-		if state.IsCordoned && state.IsDrained {
-			log.Infow("Node is already cordoned and drained, no action required", "node", node.Name, "state", state, "traceCtx", ctx)
-			return
-		}
-
-		log.Infow("Determined drain is required for the node", "node", node.Name, "state", state, "traceCtx", ctx)
-
-		// check state and attempt to cordon if required
-		if state.IsCordoned {
-			log.Infow("Node is already cordoned, skipping cordon", "node", node.Name, "state", state, "traceCtx", ctx)
-			recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s is already cordoned, no need to attempt a cordon.", node.Name)
-		} else {
-			b, err := n.CordonNode(ctx, clientset, node)
-			if err != nil {
-				log.Errorw("Failed to cordon node", "node", node.Name, "error", err, "traceCtx", ctx)
-				recorder.Eventf(node, v1.EventTypeWarning, "CordonNode", "Failed to cordon node %s", node.Name)
-			} else {
-				state.IsCordoned = b
-				log.Infow("Node cordoned", "node", node.Name, "state", state, "traceCtx", ctx)
-				recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s cordoned by mechanic", node.Name)
-			}
-		}
-
-		if state.IsDrained {
-			log.Infow("Node is already drained, skipping drain", "node", node.Name, "traceCtx", ctx)
-		} else {
-			b, err := n.DrainNode(ctx, clientset, node)
-			if err != nil {
-				log.Errorw("Failed to drain node", "node", node.Name, "error", err, "traceCtx", ctx)
-				recorder.Eventf(node, v1.EventTypeWarning, "DrainNode", "Failed to drain node %s", node.Name)
-			} else {
-				state.IsDrained = b
-				log.Infow("Node drain completed", "node", node.Name, "state", state, "traceCtx", ctx)
-				recorder.Eventf(node, v1.EventTypeNormal, "DrainNode", "Node %s drained by mechanic", node.Name)
-			}
-		}
-	}
-
-	// Check for unneeded cordon
-	log.Infow("Checking for unneeded cordon", "node", node.Name, "state", state, "traceCtx", ctx)
-	updated, err := clientset.CoreV1().Nodes().Get(ctx, node.Name, metav1.GetOptions{})
-	if err != nil {
-		log.Errorw("Failed to get updated node object", "node", node.Name, "error", err, "state", state, "traceCtx", ctx)
-		return
-	}
-	n.ValidateCordon(ctx, clientset, updated, recorder)
-
-	log.Infow("Finished processing node cordon and drain", "node", node.Name, "state", state, "traceCtx", ctx)
-}
-
-// handleIMDSCheck performs the IMDS check and node processing logic when bypassing Node Problem Detector
-func handleIMDSCheck(ctx context.Context, clientset kubernetes.Interface, cfg *config.Config, state *appstate.State, ic *imds.IMDSClient, recorder record.EventRecorder, tracer trace.Tracer, log *zap.SugaredLogger) {
-	ctx, span := tracer.Start(ctx, "handleIMDSCheck")
-	defer span.End()
-
-	// lock the state object so we know we have it exclusively for this function
-	didLock := state.Lock.TryLock()
-	if !didLock {
-		log.Warnw("Failed to lock state object, skipping IMDS check",
-			"node", cfg.NodeName,
-			"traceCtx", ctx)
-		return
-	}
-	log.Debugw("Locked state object for IMDS check", "node", cfg.NodeName,
-		"state", state,
-		"traceCtx", ctx)
-	defer func() {
-		state.Lock.Unlock()
-		log.Debugw("Unlocked state object after IMDS check",
-			"node", cfg.NodeName,
-			"state", state,
-			"traceCtx", ctx)
-	}()
-
-	// Get current node state
-	node, err := clientset.CoreV1().Nodes().Get(ctx, cfg.NodeName, metav1.GetOptions{})
-	if err != nil {
-		log.Errorw("Failed to get node during IMDS check", "error", err, "node", cfg.NodeName, "traceCtx", ctx)
-		return
-	}
-
-	log.Infow("Performing IMDS check for node", "node", node.Name, "traceCtx", ctx)
-
-	// Update cordon state from current node status
-	state.IsCordoned = node.Spec.Unschedulable
-
-	// Check IMDS directly for drain requirements
-	shouldDrain, err := imds.CheckIfDrainRequired(ctx, ic, node, &cfg.ScheduledEventDrainConditions, &cfg.OptionalDrainConditions)
-	if err != nil {
-		log.Errorw("Failed to check if drain is required from IMDS", "error", err, "node", node.Name, "traceCtx", ctx)
-		return
-	}
-
-	// Update state based on IMDS check
-	state.HasDrainableCondition = shouldDrain
-	state.ShouldDrain = shouldDrain
-
-	log.Infow("Finished IMDS check", "node", node.Name, "shouldDrain", shouldDrain, "state", state, "traceCtx", ctx)
-
-	handleNodeCordonAndDrain(ctx, clientset, node, state, recorder, tracer, log)
 }

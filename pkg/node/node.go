@@ -6,8 +6,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/amargherio/mechanic/internal/config"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +41,7 @@ func (l *logger) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) (bool, error) {
+func cordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) (bool, error) {
 	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
 	ctx, span := tracer.Start(ctx, "ReadConfiguration")
 	defer span.End()
@@ -107,7 +109,7 @@ func CordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.No
 	return true, nil
 }
 
-func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
+func uncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) error {
 	vals := ctx.Value("values").(*config.ContextValues)
 
 	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
@@ -143,7 +145,7 @@ func UncordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.
 	return nil
 }
 
-func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) (bool, error) {
+func drainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Node) (bool, error) {
 	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
 	ctx, span := tracer.Start(ctx, "DrainNode")
 	defer span.End()
@@ -176,7 +178,7 @@ func DrainNode(ctx context.Context, clientset kubernetes.Interface, node *v1.Nod
 	return true, nil
 }
 
-func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, recorder record.EventRecorder) {
+func validateCordon(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, recorder record.EventRecorder) {
 	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
 	ctx, span := tracer.Start(ctx, "ValidateCordon")
 	defer span.End()
@@ -196,7 +198,7 @@ func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v
 	if vals.State.HasDrainableCondition {
 		if vals.State.IsCordoned && !node.Spec.Unschedulable {
 			log.Debugw("Node has an upcoming event scheduled, state shows cordoned but node is not. Cordon the node.", "node", node.Name, "state", vals.State, "traceCtx", ctx)
-			isCordoned, err := CordonNode(ctx, clientset, node)
+			isCordoned, err := cordonNode(ctx, clientset, node)
 			if err != nil {
 				log.Errorw("Failed to cordon node", "node", node.Name, "error", err, "traceCtx", ctx)
 				recorder.Eventf(node, v1.EventTypeWarning, "CordonNode", "Failed to cordon node %s", node.Name)
@@ -222,7 +224,7 @@ func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v
 		if _, ok := node.Labels["mechanic.cordoned"]; ok {
 			log.Infow("Node is cordoned by mechanic but no scheduled events found. Uncordoning node and removing the label", "node", node.Name, "traceCtx", ctx)
 
-			err := UncordonNode(ctx, clientset, node)
+			err := uncordonNode(ctx, clientset, node)
 			if err != nil {
 				log.Errorw("Failed to uncordon node", "node", node.Name, "error", err, "traceCtx", ctx)
 				recorder.Eventf(node, v1.EventTypeWarning, "UncordonNode", "Failed to uncordon node %s", node.Name)
@@ -240,7 +242,7 @@ func ValidateCordon(ctx context.Context, clientset kubernetes.Interface, node *v
 		if node.Spec.Unschedulable {
 			if _, ok := node.Labels["mechanic.cordoned"]; ok {
 				log.Warnw("Node is cordoned but our state shows it's not. No upcoming events so uncordoning the node and removing the label", "node", node.Name, "traceCtx", ctx)
-				err := UncordonNode(ctx, clientset, node)
+				err := uncordonNode(ctx, clientset, node)
 				if err != nil {
 					log.Errorw("Failed to uncordon node", "node", node.Name, "error", err, "traceCtx", ctx)
 					recorder.Eventf(node, v1.EventTypeWarning, "UncordonNode", "Failed to uncordon node %s", node.Name)
@@ -361,4 +363,61 @@ func removeMechanicCordonLabel(ctx context.Context, node *v1.Node, clientset kub
 		log.Warnw("Failed to remove mechanic label from node - retry error encountered", "node", node.Name, "error", retryErr, "traceCtx", ctx)
 	}
 	log.Debugw("Mechanic label removed from node", "node", node.Name, "traceCtx", ctx)
+}
+
+// handleNodeCordonAndDrain handles the shared logic for cordoning and draining a node
+func HandleNodeCordonAndDrain(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, state *appstate.State, recorder record.EventRecorder, tracer trace.Tracer, log *zap.SugaredLogger) {
+	ctx, span := tracer.Start(ctx, "handleNodeCordonAndDrain")
+	defer span.End()
+
+	if state.HasDrainableCondition && state.ShouldDrain {
+		// early return if the node is already cordoned and drained
+		if state.IsCordoned && state.IsDrained {
+			log.Infow("Node is already cordoned and drained, no action required", "node", node.Name, "state", state, "traceCtx", ctx)
+			return
+		}
+
+		log.Infow("Determined drain is required for the node", "node", node.Name, "state", state, "traceCtx", ctx)
+
+		// check state and attempt to cordon if required
+		if state.IsCordoned {
+			log.Infow("Node is already cordoned, skipping cordon", "node", node.Name, "state", state, "traceCtx", ctx)
+			recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s is already cordoned, no need to attempt a cordon.", node.Name)
+		} else {
+			b, err := cordonNode(ctx, clientset, node)
+			if err != nil {
+				log.Errorw("Failed to cordon node", "node", node.Name, "error", err, "traceCtx", ctx)
+				recorder.Eventf(node, v1.EventTypeWarning, "CordonNode", "Failed to cordon node %s", node.Name)
+			} else {
+				state.IsCordoned = b
+				log.Infow("Node cordoned", "node", node.Name, "state", state, "traceCtx", ctx)
+				recorder.Eventf(node, v1.EventTypeNormal, "CordonNode", "Node %s cordoned by mechanic", node.Name)
+			}
+		}
+
+		if state.IsDrained {
+			log.Infow("Node is already drained, skipping drain", "node", node.Name, "traceCtx", ctx)
+		} else {
+			b, err := drainNode(ctx, clientset, node)
+			if err != nil {
+				log.Errorw("Failed to drain node", "node", node.Name, "error", err, "traceCtx", ctx)
+				recorder.Eventf(node, v1.EventTypeWarning, "DrainNode", "Failed to drain node %s", node.Name)
+			} else {
+				state.IsDrained = b
+				log.Infow("Node drain completed", "node", node.Name, "state", state, "traceCtx", ctx)
+				recorder.Eventf(node, v1.EventTypeNormal, "DrainNode", "Node %s drained by mechanic", node.Name)
+			}
+		}
+	}
+
+	// Check for unneeded cordon
+	log.Infow("Checking for unneeded cordon", "node", node.Name, "state", state, "traceCtx", ctx)
+	updated, err := clientset.CoreV1().Nodes().Get(ctx, node.Name, metav1.GetOptions{})
+	if err != nil {
+		log.Errorw("Failed to get updated node object", "node", node.Name, "error", err, "state", state, "traceCtx", ctx)
+		return
+	}
+	validateCordon(ctx, clientset, updated, recorder)
+
+	log.Infow("Finished processing node cordon and drain", "node", node.Name, "state", state, "traceCtx", ctx)
 }
