@@ -15,13 +15,13 @@ import (
 	"k8s.io/client-go/tools/record"
 )
 
-var POLLING_INTERVAL = 10 * time.Second
+const PollingInterval = 10 * time.Second
 
 // calculateJitteredInterval calculates the next polling interval with jitter
 func calculateJitteredInterval(rng *rand.Rand) time.Duration {
 	// Add jitter of ±10% of the polling interval (±1 second for 10s interval)
-	jitter := time.Duration((rng.Float64() - 0.5) * 0.2 * float64(POLLING_INTERVAL))
-	return POLLING_INTERVAL + jitter
+	jitter := time.Duration((rng.Float64() - 0.5) * 0.2 * float64(PollingInterval))
+	return PollingInterval + jitter
 }
 
 func InitiateBypassLooper(ctx context.Context, clientset *kubernetes.Clientset, cfg config.Config, state *appstate.State, ic *imds.IMDSClient, recorder record.EventRecorder, stop <-chan struct{}) {
