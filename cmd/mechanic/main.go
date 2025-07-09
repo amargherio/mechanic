@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/amargherio/mechanic/internal/config"
@@ -103,9 +105,28 @@ func main() {
 
 	state.IsCordoned = node.Spec.Unschedulable
 
+	// Set up signal handling for graceful shutdown
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	// Create stop channel for graceful shutdown
 	stop := make(chan struct{})
 	defer close(stop)
+
+	// Handle shutdown signals in a separate goroutine
+	go func() {
+		select {
+		case sig := <-signalChan:
+			log.Infow("Received shutdown signal, initiating graceful shutdown", "signal", sig)
+			cancel()
+		case <-ctx.Done():
+			log.Infow("Context cancelled, initiating graceful shutdown")
+		}
+	}()
 
 	// if BypassNodeProblemDetector is true, we don't set up the informer for node updates
 	if cfg.BypassNodeProblemDetector {
@@ -139,9 +160,12 @@ func main() {
 		// wait for caches to sync
 		if !cache.WaitForCacheSync(stop, ni.HasSynced) {
 			log.Errorw("Failed to sync informer caches")
+			return
 		}
 
-		// block main process
+		// block main process until shutdown signal
 		<-stop
 	}
+
+	log.Info("Mechanic shutdown complete")
 }
