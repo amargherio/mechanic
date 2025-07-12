@@ -11,8 +11,8 @@ type State struct {
 	ShouldDrain               bool
 }
 
-func (s *State) LockState() {
-	s.Lock.Lock()
+func (s *State) LockState() bool {
+	return s.Lock.TryLock()
 }
 
 func (s *State) UnlockState() {

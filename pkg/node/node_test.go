@@ -99,7 +99,7 @@ func TestCordonNode(t *testing.T) {
 
 			ctx := context.WithValue(context.Background(), "values", &vals)
 
-			cordoned, err := CordonNode(ctx, clientset, node)
+			cordoned, err := cordonNode(ctx, clientset, node)
 			if (err != nil) != tc.expectError {
 				t.Errorf("CordonNode() error = %v, expectError %v", err, tc.expectError)
 				return
@@ -165,7 +165,7 @@ func TestDrainNode(t *testing.T) {
 
 			ctx := context.WithValue(context.Background(), "values", &vals)
 
-			drained, err := DrainNode(ctx, clientset, node)
+			drained, err := drainNode(ctx, clientset, node)
 			if (err != nil) != tc.expectError {
 				t.Errorf("DrainNode() error = %v, expectError %v", err, tc.expectError)
 			}
@@ -375,7 +375,7 @@ func TestValidateCordon(t *testing.T) {
 				t.Errorf("Error creating node: %v", err)
 			}
 
-			ValidateCordon(ctx, clientset, node, recorder)
+			validateCordon(ctx, clientset, node, recorder)
 			updatedNode, _ := clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 
 			assert.Equal(t, &tc.expectedState, &tc.inputState, "Expected state to be %v, got %v", &tc.expectedState, &tc.inputState)
