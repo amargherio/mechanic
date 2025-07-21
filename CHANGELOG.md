@@ -13,6 +13,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Gofmt -s for the internal logger
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks
+- Fixing git-cliff config to link out to calver
+- Reverting win2019 back to 2025.4 release
+- Removing win2019 container build logic
+
+## [2025.7] - 2025-07-21
+
+### <!-- 0 -->🚀 Features
+- Bypassing node problem detector and manually querying IMDS (#99)
+
+### <!-- 5 -->🎨 Styling
+- Gofmt -s for the internal logger
+
+### <!-- 7 -->⚙️ Miscellaneous Tasks
 - Fixing kustomize base and static YAML for the 2025.4 release images
 - Fixing git-cliff config to link out to calver
 
