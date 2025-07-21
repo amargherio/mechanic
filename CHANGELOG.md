@@ -2,8 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Calendar Versioning](https://calver.org).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Calendar Versioning](https://calver.org).
+
+## [2025.7] - 2025-07-21
+
+### <!-- 0 -->🚀 Features
+- Bypassing node problem detector and manually querying IMDS (#99)
+
+### <!-- 5 -->🎨 Styling
+- Gofmt -s for the internal logger
+
+### <!-- 7 -->⚙️ Miscellaneous Tasks
+- Fixing kustomize base and static YAML for the 2025.4 release images
+- Fixing git-cliff config to link out to calver
 
 ## [2025.4] - 2025-04-21
 

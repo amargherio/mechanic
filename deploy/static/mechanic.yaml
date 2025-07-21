@@ -107,6 +107,7 @@ data:
       fsCorrupt: true
     runtimeEnv: prod
     enableTracing: true
+    bypassNodeProblemDetector: false
 kind: ConfigMap
 metadata:
   name: mechanic
@@ -132,7 +133,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.4-distroless
+        image: ghcr.io/amargherio/mechanic:v2025.7-distroless
         imagePullPolicy: Always
         name: mechanic
         resources:
@@ -180,7 +181,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.4-windows2019
+        image: ghcr.io/amargherio/mechanic:v2025.7-windows2019
         imagePullPolicy: Always
         name: mechanic
         resources:
@@ -229,7 +230,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.4-windows2022
+        image: ghcr.io/amargherio/mechanic:v2025.7-windows2022
         imagePullPolicy: Always
         name: mechanic
         resources:
