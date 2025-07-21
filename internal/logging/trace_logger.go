@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
@@ -86,7 +87,7 @@ func (c *TraceCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	default:
 		fields = append(fields[:ctxIndex], fields[ctxIndex+1:]...)
 	}
-	
+
 	return c.ioCore.Write(entry, fields)
 }
 
