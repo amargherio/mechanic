@@ -181,7 +181,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.7-windows2019
+        image: ghcr.io/amargherio/mechanic:v2025.4-windows2019
         imagePullPolicy: Always
         name: mechanic
         resources:
