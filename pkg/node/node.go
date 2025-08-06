@@ -421,3 +421,26 @@ func HandleNodeCordonAndDrain(ctx context.Context, clientset kubernetes.Interfac
 
 	log.Infow("Finished processing node cordon and drain", "node", node.Name, "state", state, "traceCtx", ctx)
 }
+
+func CheckOptionalDrainConditions(ctx context.Context, node *v1.Node, optDrainConditions *config.OptionalDrainConditions) (bool, error) {
+	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/node")
+	ctx, span := tracer.Start(ctx, "CheckOptionalDrainConditions")
+	defer span.End()
+
+	vals := ctx.Value("values").(*config.ContextValues)
+	log := vals.Logger
+
+	// Check if the node matches any of the optional drain conditions
+	nodeConditions := node.Status.Conditions
+	optionalDrains := optDrainConditions.OptionalDrainableConditions()
+	for _, cond := range nodeConditions {
+		if slices.Contains(optionalDrains, string(cond.Type)) {
+			if cond.Status == "True" {
+				log.Infow("Node matches optional drain condition", "node", node.Name, "condition", cond.Type, "traceCtx", ctx)
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
