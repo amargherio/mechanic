@@ -1,3 +1,10 @@
+> _**NOTE:**_ The AKS engineering team is working through enhanced drain-on-freeze logic and developing functionality
+> that replicats what Mechanic aims to offer. As the functionality enters GA status, Mechanic will hit end of life
+> and be archived in place. It's recommended to remove mechanic from AKS clusters using the built-in scheduled event
+> handling to prevent conflicting operations and potential disruption.
+>
+> More information on the AKS platform work and tracking can be found at [#3463 - [Feature] Pod Eviction on Freeze and Reboot](https://github.com/Azure/AKS/issues/3463)
+
 # Mechanic
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/amargherio/mechanic)](https://goreportcard.com/report/github.com/amargherio/mechanic)
