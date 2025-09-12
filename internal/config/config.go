@@ -19,7 +19,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const ENVVAR_PREFIX = "ENVVAR_PREFIX"
+const ENVVAR_PREFIX = "MECHANIC_"
 const ENVVAR_POLLING_INTERVAL = 10 * time.Second
 
 // ScheduledEventDrainConditions defines which VM scheduled events should trigger node draining
