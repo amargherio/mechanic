@@ -246,13 +246,12 @@ func EnableHotReload(ctx context.Context, v *viper.Viper, cfg *Config, log *zap.
 		}
 
 		v.WatchConfig()
-		// Attempt to watch config file, recover from any unexpected panics
-		defer func() {
-			if r := recover(); r != nil {
-				log.Errorw("Panic occurred during config file watcher setup", "recover", r)
-			}
-		}()
 		v.OnConfigChange(func(e fsnotify.Event) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Errorw("Panic occurred during config file watcher callback", "recover", r)
+				}
+			}()
 			reload("file-change")
 		})
 	}
