@@ -2,15 +2,25 @@ package config
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
+	"sort"
+	"strings"
+	"time"
 
 	"github.com/amargherio/mechanic/internal/appstate"
 	"github.com/amargherio/mechanic/pkg/consts"
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"k8s.io/client-go/rest"
 )
+
+const ENVVAR_PREFIX = "MECHANIC_"
+const ENVVAR_POLLING_INTERVAL = 10 * time.Second
 
 // ScheduledEventDrainConditions defines which VM scheduled events should trigger node draining
 type ScheduledEventDrainConditions struct {
@@ -59,7 +69,9 @@ type Config struct {
 	BypassNodeProblemDetector     bool
 }
 
-func ReadConfiguration(ctx context.Context) (Config, error) {
+// ReadConfiguration loads configuration from file and env vars and returns the *Config plus the underlying viper instance
+// so callers can enable hot reloading.
+func ReadConfiguration(ctx context.Context) (*Config, *viper.Viper, error) {
 	vals := ctx.Value("values").(*ContextValues)
 	log := vals.Logger
 
@@ -115,7 +127,7 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 	kc, err := rest.InClusterConfig()
 	if err != nil {
 		log.Errorw("Failed to get in cluster config", "error", err)
-		return Config{}, err
+		return nil, nil, err
 	}
 
 	// PollingInterval is expected to be in seconds. Enforce a minimum of 1 second.
@@ -126,7 +138,7 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 
 	log.Debugw("Successfully read configuration", "config", mechanicConfig)
 
-	return Config{
+	return &Config{
 		ScheduledEventDrainConditions: mechanicConfig.ScheduledEvents,
 		OptionalDrainConditions:       mechanicConfig.Optional,
 		KubeConfig:                    kc,
@@ -134,7 +146,7 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 		EnableTracing:                 mechanicConfig.EnableTracing,
 		RuntimeEnv:                    mechanicConfig.RuntimeEnv,
 		BypassNodeProblemDetector:     mechanicConfig.BypassNodeProblemDetector,
-	}, nil
+	}, config, nil
 }
 
 // DrainableConditions returns a list of VM event conditions that would trigger a drain
@@ -189,4 +201,91 @@ func (oc *OptionalDrainConditions) OptionalDrainableConditions() []string {
 	}
 
 	return drainableConditions
+}
+
+// EnableHotReload sets up watchers on the configuration file and periodically checks for environment variable changes.
+// When changes are detected the provided *Config object is updated in-place so existing references see new values.
+func EnableHotReload(ctx context.Context, v *viper.Viper, cfg *Config, log *zap.SugaredLogger) {
+	// helper to (re)load configuration and apply to existing cfg struct
+	reload := func(trigger string) {
+		log.Infow("Reloading configuration", "trigger", trigger)
+
+		// Re-read the config file if present (viper caches env automatically)
+		if err := v.ReadInConfig(); err != nil {
+			log.Warnw("Failed to re-read config file during reload", "error", err)
+		}
+
+		var mc MechanicConfig
+		if err := v.Unmarshal(&mc); err != nil {
+			log.Errorw("Failed to unmarshal config during reload", "error", err)
+			return
+		}
+
+		if mc.Optional.PollingInterval < 1 {
+			mc.Optional.PollingInterval = 1
+		}
+
+		// Update fields in place
+		cfg.ScheduledEventDrainConditions = mc.ScheduledEvents
+		cfg.OptionalDrainConditions = mc.Optional
+		cfg.RuntimeEnv = mc.RuntimeEnv
+		cfg.EnableTracing = mc.EnableTracing
+		cfg.BypassNodeProblemDetector = mc.BypassNodeProblemDetector
+		cfg.NodeName = v.GetString("NODE_NAME")
+
+		log.Infow("Configuration reloaded", "runtimeEnv", cfg.RuntimeEnv, "nodeName", cfg.NodeName, "bypassNodeProblemDetector", cfg.BypassNodeProblemDetector)
+	}
+
+	// Watch the config file for changes
+	configFile := v.ConfigFileUsed()
+	if configFile == "" {
+		log.Warnw("No config file specified; hot reload via file watcher will not be enabled")
+	} else {
+		if _, err := os.Stat(configFile); err != nil {
+			log.Warnw("Config file not found or inaccessible; hot reload via file watcher may not work", "configFile", configFile, "error", err)
+		}
+
+		v.WatchConfig()
+		v.OnConfigChange(func(e fsnotify.Event) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Errorw("Panic occurred during config file watcher callback", "recover", r)
+				}
+			}()
+			reload("file-change")
+		})
+	}
+
+	// Environment variable polling (Kubernetes cannot mutate env in-place but useful for local dev or injected updates)
+	prevHash := hashMechanicEnvs()
+	go func() {
+		ticker := time.NewTicker(ENVVAR_POLLING_INTERVAL)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				h := hashMechanicEnvs()
+				if h != prevHash {
+					prevHash = h
+					reload("env-change")
+				}
+			}
+		}
+	}()
+}
+
+// hashMechanicEnvs returns a stable hash of current MECHANIC_* environment variables.
+func hashMechanicEnvs() string {
+	envs := os.Environ()
+	var filtered []string
+	for _, e := range envs {
+		if strings.HasPrefix(e, ENVVAR_PREFIX) {
+			filtered = append(filtered, e)
+		}
+	}
+	sort.Strings(filtered)
+	sum := sha256.Sum256([]byte(strings.Join(filtered, "|")))
+	return hex.EncodeToString(sum[:])
 }
