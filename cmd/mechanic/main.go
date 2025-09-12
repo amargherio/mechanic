@@ -68,11 +68,14 @@ func main() {
 	}
 	ctx = context.WithValue(context.Background(), "values", &vals)
 
-	cfg, err := config.ReadConfiguration(ctx)
+	cfg, vp, err := config.ReadConfiguration(ctx)
 	if err != nil {
 		logger.Sugar().Warnw("Failed to read configuration", "error", err)
 		return
 	}
+
+	// enable hot reloading of configuration
+	config.EnableHotReload(ctx, vp, cfg, log)
 
 	// adjust the log level based on the config value
 	if cfg.RuntimeEnv != "prod" {
@@ -149,7 +152,7 @@ func main() {
 				ctx, span := tracer.Start(ctx, "nodeUpdateHandler")
 				defer span.End()
 
-				condinformer.HandleNodeUpdate(ctx, clientset, &cfg, &state, &ic, recorder, new)
+				condinformer.HandleNodeUpdate(ctx, clientset, cfg, &state, &ic, recorder, new)
 			},
 		})
 

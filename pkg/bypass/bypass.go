@@ -24,7 +24,7 @@ func calculateJitteredInterval(rng *rand.Rand) time.Duration {
 	return PollingInterval + jitter
 }
 
-func InitiateBypassLooper(ctx context.Context, clientset kubernetes.Interface, cfg config.Config, state *appstate.State, ic *imds.IMDSClient, recorder record.EventRecorder, stop <-chan struct{}) {
+func InitiateBypassLooper(ctx context.Context, clientset kubernetes.Interface, cfg *config.Config, state *appstate.State, ic *imds.IMDSClient, recorder record.EventRecorder, stop <-chan struct{}) {
 	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/bypass")
 	ctx, span := tracer.Start(ctx, "InitiateBypassLooper")
 	defer span.End()
@@ -50,7 +50,7 @@ func InitiateBypassLooper(ctx context.Context, clientset kubernetes.Interface, c
 	}()
 
 	// Perform initial IMDS check immediately
-	handleIMDSCheck(ctx, clientset, &cfg, state, ic, recorder, true)
+	handleIMDSCheck(ctx, clientset, cfg, state, ic, recorder, true)
 
 	// Calculate first jittered interval
 	nextInterval := calculateJitteredInterval(rng)
@@ -62,12 +62,12 @@ func InitiateBypassLooper(ctx context.Context, clientset kubernetes.Interface, c
 		case <-timer.C:
 			// Perform IMDS check and optional condition check
 			if time.Since(lastOptionalDrainCheck) >= time.Duration(cfg.OptionalDrainConditions.PollingInterval)*time.Second {
-				log.Infow("Performing periodic check for optional drain conditions", "node", cfg.NodeName)
-				handleIMDSCheck(ctx, clientset, &cfg, state, ic, recorder, true)
+				log.Infow("Performing periodic check for optional drain conditions", "node", cfg.NodeName, "pollingInterval", cfg.OptionalDrainConditions.PollingInterval)
+				handleIMDSCheck(ctx, clientset, cfg, state, ic, recorder, true)
 				lastOptionalDrainCheck = time.Now()
 			} else {
 				log.Debugw("Skipping periodic check for optional drain conditions", "node", cfg.NodeName)
-				handleIMDSCheck(ctx, clientset, &cfg, state, ic, recorder, false)
+				handleIMDSCheck(ctx, clientset, cfg, state, ic, recorder, false)
 			}
 
 			// Calculate next jittered interval and reset timer
