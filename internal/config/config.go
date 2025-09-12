@@ -243,10 +243,10 @@ func EnableHotReload(ctx context.Context, v *viper.Viper, cfg *Config, log *zap.
 	})
 
 	// Environment variable polling (Kubernetes cannot mutate env in-place but useful for local dev or injected updates)
+	prevHash := hashMechanicEnvs()
 	go func() {
 		ticker := time.NewTicker(ENVVAR_POLLING_INTERVAL)
 		defer ticker.Stop()
-		prevHash := ""
 		for {
 			select {
 			case <-ctx.Done():
