@@ -109,6 +109,7 @@ data:
       frequentKubeletRestarts: true
       frequentContainerdRestarts: true
       fsCorrupt: true
+      pollingInterval: 30
     runtimeEnv: prod
     enableTracing: true
     bypassNodeProblemDetector: false

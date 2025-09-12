@@ -35,7 +35,7 @@ func InitiateBypassLooper(ctx context.Context, clientset kubernetes.Interface, c
 	// Create a properly seeded random source for jitter values
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	log.Infow("Bypassing Node Problem Detector, not setting up informer and querying IMDS directly", "node", cfg.NodeName)
+	log.Infow("Bypassing Node Problem Detector - querying IMDS directly for scheduled events and using longer polling for optional drain conditions.", "node", cfg.NodeName)
 
 	// Create a cancellable context for graceful shutdown
 	ctx, cancel := context.WithCancel(ctx)
@@ -50,17 +50,25 @@ func InitiateBypassLooper(ctx context.Context, clientset kubernetes.Interface, c
 	}()
 
 	// Perform initial IMDS check immediately
-	handleIMDSCheck(ctx, clientset, &cfg, state, ic, recorder)
+	handleIMDSCheck(ctx, clientset, &cfg, state, ic, recorder, true)
 
 	// Calculate first jittered interval
 	nextInterval := calculateJitteredInterval(rng)
 	timer = time.NewTimer(nextInterval)
+	lastOptionalDrainCheck := time.Now()
 
 	for {
 		select {
 		case <-timer.C:
-			// Perform IMDS check
-			handleIMDSCheck(ctx, clientset, &cfg, state, ic, recorder)
+			// Perform IMDS check and optional condition check
+			if time.Since(lastOptionalDrainCheck) >= time.Duration(cfg.OptionalDrainConditions.PollingInterval)*time.Second {
+				log.Infow("Performing periodic check for optional drain conditions", "node", cfg.NodeName)
+				handleIMDSCheck(ctx, clientset, &cfg, state, ic, recorder, true)
+				lastOptionalDrainCheck = time.Now()
+			} else {
+				log.Debugw("Skipping periodic check for optional drain conditions", "node", cfg.NodeName)
+				handleIMDSCheck(ctx, clientset, &cfg, state, ic, recorder, false)
+			}
 
 			// Calculate next jittered interval and reset timer
 			nextInterval = calculateJitteredInterval(rng)
@@ -77,7 +85,7 @@ func InitiateBypassLooper(ctx context.Context, clientset kubernetes.Interface, c
 }
 
 // handleIMDSCheck performs the IMDS check and node processing logic when bypassing Node Problem Detector
-func handleIMDSCheck(ctx context.Context, clientset kubernetes.Interface, cfg *config.Config, state *appstate.State, ic *imds.IMDSClient, recorder record.EventRecorder) {
+func handleIMDSCheck(ctx context.Context, clientset kubernetes.Interface, cfg *config.Config, state *appstate.State, ic *imds.IMDSClient, recorder record.EventRecorder, shouldCheckOptionals bool) {
 	tracer := otel.Tracer("github.com/amargherio/mechanic/pkg/bypass")
 	ctx, span := tracer.Start(ctx, "handleIMDSCheck")
 	defer span.End()
@@ -121,6 +129,14 @@ func handleIMDSCheck(ctx context.Context, clientset kubernetes.Interface, cfg *c
 	if err != nil {
 		log.Errorw("Failed to check if drain is required from IMDS", "error", err, "node", node.Name, "traceCtx", ctx)
 		return
+	}
+
+	if !shouldDrain && shouldCheckOptionals {
+		shouldDrain, err = n.CheckOptionalDrainConditions(ctx, node, &cfg.OptionalDrainConditions)
+		if err != nil {
+			log.Errorw("Failed to check optional drain conditions", "error", err, "node", node.Name, "traceCtx", ctx)
+			return
+		}
 	}
 
 	// Update state based on IMDS check

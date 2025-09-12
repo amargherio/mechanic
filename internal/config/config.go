@@ -29,6 +29,7 @@ type OptionalDrainConditions struct {
 	FrequentKubeletRestarts    bool `mapstructure:"frequentKubeletRestarts"`
 	FrequentContainerdRestarts bool `mapstructure:"frequentContainerdRestarts"`
 	FsCorrupt                  bool `mapstructure:"fsCorrupt"`
+	PollingInterval            int  `mapstructure:"pollingInterval"`
 }
 
 // MechanicConfig represents the full configuration structure from mechanic.yaml
@@ -82,6 +83,7 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 			FrequentKubeletRestarts:    false,
 			FrequentContainerdRestarts: false,
 			FsCorrupt:                  false,
+			PollingInterval:            30,
 		},
 		RuntimeEnv:                "prod",
 		EnableTracing:             true,
@@ -114,6 +116,12 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 	if err != nil {
 		log.Errorw("Failed to get in cluster config", "error", err)
 		return Config{}, err
+	}
+
+	// PollingInterval is expected to be in seconds. Enforce a minimum of 1 second.
+	if mechanicConfig.Optional.PollingInterval < 1 {
+		log.Warnw("Optional polling interval is less than 1 second, resetting to minimum value of 1 second", "providedIntervalSeconds", mechanicConfig.Optional.PollingInterval)
+		mechanicConfig.Optional.PollingInterval = 1
 	}
 
 	log.Debugw("Successfully read configuration", "config", mechanicConfig)
