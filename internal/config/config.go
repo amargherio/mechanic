@@ -244,13 +244,14 @@ func EnableHotReload(ctx context.Context, v *viper.Viper, cfg *Config, log *zap.
 		if _, err := os.Stat(configFile); err != nil {
 			log.Warnw("Config file not found or inaccessible; hot reload via file watcher may not work", "configFile", configFile, "error", err)
 		}
+
+		v.WatchConfig()
 		// Attempt to watch config file, recover from any unexpected panics
 		defer func() {
 			if r := recover(); r != nil {
 				log.Errorw("Panic occurred during config file watcher setup", "recover", r)
 			}
 		}()
-		v.WatchConfig()
 		v.OnConfigChange(func(e fsnotify.Event) {
 			reload("file-change")
 		})
@@ -281,7 +282,7 @@ func hashMechanicEnvs() string {
 	envs := os.Environ()
 	var filtered []string
 	for _, e := range envs {
-		if strings.HasPrefix(e, ENVVAR_PREFIX) { // already key=value format
+		if strings.HasPrefix(e, ENVVAR_PREFIX) {
 			filtered = append(filtered, e)
 		}
 	}
