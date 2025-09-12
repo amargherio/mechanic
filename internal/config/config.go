@@ -118,8 +118,9 @@ func ReadConfiguration(ctx context.Context) (Config, error) {
 		return Config{}, err
 	}
 
+	// PollingInterval is expected to be in seconds. Enforce a minimum of 1 second.
 	if mechanicConfig.Optional.PollingInterval < 1 {
-		log.Warnw("Optional polling interval is less than 1 second, resetting to minimum value of 1 second", "providedInterval", mechanicConfig.Optional.PollingInterval)
+		log.Warnw("Optional polling interval is less than 1 second, resetting to minimum value of 1 second", "providedIntervalSeconds", mechanicConfig.Optional.PollingInterval)
 		mechanicConfig.Optional.PollingInterval = 1
 	}
 

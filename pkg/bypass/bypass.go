@@ -61,7 +61,7 @@ func InitiateBypassLooper(ctx context.Context, clientset kubernetes.Interface, c
 		select {
 		case <-timer.C:
 			// Perform IMDS check and optional condition check
-			if time.Since(lastOptionalDrainCheck) >= time.Duration(cfg.OptionalDrainConditions.PollingInterval) {
+			if time.Since(lastOptionalDrainCheck) >= time.Duration(cfg.OptionalDrainConditions.PollingInterval)*time.Second {
 				log.Infow("Performing periodic check for optional drain conditions", "node", cfg.NodeName)
 				handleIMDSCheck(ctx, clientset, &cfg, state, ic, recorder, true)
 				lastOptionalDrainCheck = time.Now()
