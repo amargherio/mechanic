@@ -237,10 +237,24 @@ func EnableHotReload(ctx context.Context, v *viper.Viper, cfg *Config, log *zap.
 	}
 
 	// Watch the config file for changes
-	v.WatchConfig()
-	v.OnConfigChange(func(e fsnotify.Event) {
-		reload("file-change")
-	})
+	configFile := v.ConfigFileUsed()
+	if configFile == "" {
+		log.Warnw("No config file specified; hot reload via file watcher will not be enabled")
+	} else {
+		if _, err := os.Stat(configFile); err != nil {
+			log.Warnw("Config file not found or inaccessible; hot reload via file watcher may not work", "configFile", configFile, "error", err)
+		}
+		// Attempt to watch config file, recover from any unexpected panics
+		defer func() {
+			if r := recover(); r != nil {
+				log.Errorw("Panic occurred during config file watcher setup", "recover", r)
+			}
+		}()
+		v.WatchConfig()
+		v.OnConfigChange(func(e fsnotify.Event) {
+			reload("file-change")
+		})
+	}
 
 	// Environment variable polling (Kubernetes cannot mutate env in-place but useful for local dev or injected updates)
 	prevHash := hashMechanicEnvs()
