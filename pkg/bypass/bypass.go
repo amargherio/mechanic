@@ -35,7 +35,7 @@ func InitiateBypassLooper(ctx context.Context, clientset kubernetes.Interface, c
 	// Create a properly seeded random source for jitter values
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	log.Infow("Bypassing Node Problem Detector - querying IMDS directly for scheduled events and using an informer for optional drain conditions.", "node", cfg.NodeName)
+	log.Infow("Bypassing Node Problem Detector - querying IMDS directly for scheduled events and using longer polling for optional drain conditions.", "node", cfg.NodeName)
 
 	// Create a cancellable context for graceful shutdown
 	ctx, cancel := context.WithCancel(ctx)
@@ -61,7 +61,7 @@ func InitiateBypassLooper(ctx context.Context, clientset kubernetes.Interface, c
 		select {
 		case <-timer.C:
 			// Perform IMDS check and optional condition check
-			if time.Since(lastOptionalDrainCheck) >= 30*time.Second {
+			if time.Since(lastOptionalDrainCheck) >= time.Duration(cfg.OptionalDrainConditions.PollingInterval) {
 				log.Infow("Performing periodic check for optional drain conditions", "node", cfg.NodeName)
 				handleIMDSCheck(ctx, clientset, &cfg, state, ic, recorder, true)
 				lastOptionalDrainCheck = time.Now()

@@ -300,7 +300,7 @@ func CheckNodeConditions(ctx context.Context, node *v1.Node, eventDrainCondition
 			if !eventResp && slices.Contains(eventShouldDrain, string(condition.Type)) {
 				// check the status of the condition. if it's true, update state.HasEventScheduled to true. if it's false, reset it to false and
 				// remove the cordon if we're the ones who cordoned it
-				if condition.Status == "True" {
+				if condition.Status == v1.ConditionTrue {
 					log.Infow("Node has an upcoming scheduled event. Flagging for impact assessment.",
 						"node", node.Name,
 						"type", condition.Type,
@@ -318,7 +318,7 @@ func CheckNodeConditions(ctx context.Context, node *v1.Node, eventDrainCondition
 			if !drainableResp && slices.Contains(optDrainable, string(condition.Type)) {
 				// check the status of the condition. if it's true, update state.HasDrainableCondition to true. if it's false, reset it to false and
 				// remove the cordon if we're the ones who cordoned it
-				if condition.Status == "True" {
+				if condition.Status == v1.ConditionTrue {
 					log.Infow("Node has a drainable condition. Flagging for impact assessment.",
 						"node", node.Name,
 						"type", condition.Type,
@@ -435,7 +435,7 @@ func CheckOptionalDrainConditions(ctx context.Context, node *v1.Node, optDrainCo
 	optionalDrains := optDrainConditions.OptionalDrainableConditions()
 	for _, cond := range nodeConditions {
 		if slices.Contains(optionalDrains, string(cond.Type)) {
-			if cond.Status == "True" {
+			if cond.Status == v1.ConditionTrue {
 				log.Infow("Node matches optional drain condition", "node", node.Name, "condition", cond.Type, "traceCtx", ctx)
 				return true, nil
 			}
