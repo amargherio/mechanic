@@ -105,6 +105,7 @@ data:
       frequentKubeletRestarts: true
       frequentContainerdRestarts: true
       fsCorrupt: true
+      pollingInterval: 30
     runtimeEnv: prod
     enableTracing: true
     bypassNodeProblemDetector: false
@@ -133,7 +134,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.7-distroless
+        image: ghcr.io/amargherio/mechanic:v2025.10-distroless
         imagePullPolicy: Always
         name: mechanic
         resources:
@@ -181,7 +182,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.4-windows2019
+        image: ghcr.io/amargherio/mechanic:v2025.10-windows2019
         imagePullPolicy: Always
         name: mechanic
         resources:
@@ -230,7 +231,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.7-windows2022
+        image: ghcr.io/amargherio/mechanic:v2025.10-windows2022
         imagePullPolicy: Always
         name: mechanic
         resources:
