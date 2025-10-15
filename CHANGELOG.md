@@ -4,15 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Calendar Versioning](https://calver.org).
 
+## [2025.10] - 2025-09-12
+
+### <!-- 0 -->🚀 Features
+
+- Config hot reloading (#116)
+
+### <!-- 1 -->🐛 Bug Fixes
+
+- Checking optional drain conditions when bypassing NPD (#115)
+
+### <!-- 3 -->📚 Documentation
+
+- Updating README to reference upstream AKS feature request
+
 ## [2025.7] - 2025-07-21
 
 ### <!-- 0 -->🚀 Features
+
 - Bypassing node problem detector and manually querying IMDS (#99)
 
 ### <!-- 5 -->🎨 Styling
+
 - Gofmt -s for the internal logger
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks
+
 - Fixing git-cliff config to link out to calver
 - Reverting win2019 back to 2025.4 release
 - Removing win2019 container build logic
@@ -20,45 +37,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [2025.7] - 2025-07-21
 
 ### <!-- 0 -->🚀 Features
+
 - Bypassing node problem detector and manually querying IMDS (#99)
 
 ### <!-- 5 -->🎨 Styling
+
 - Gofmt -s for the internal logger
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks
+
 - Fixing kustomize base and static YAML for the 2025.4 release images
 - Fixing git-cliff config to link out to calver
 
 ## [2025.4] - 2025-04-21
 
 ### <!-- 0 -->🚀 Features
+
 - Adding support for optional drain conditions (#73)
 
 ### <!-- 3 -->📚 Documentation
+
 - Updating README and fixing markdown formatting in CONTRIBUTING
 
 ## [2025.1] - 2025-01-10
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks
+
 - Bumping the image version in yamls for 2025.1
 - Bumping version in go.mod
 
 ## [1.0.0] - 2024-12-27
 
 ### <!-- 0 -->🚀 Features
+
 - Adding support for customized drain conditions (#20)
 - Opentelemtry tracing implementation
 - Updated observability and improved logging (#36)
 
 ### <!-- 1 -->🐛 Bug Fixes
+
 - Updated build components to handle distroless vs regular images
 - Updating UncordonNode to correctly pull the values from the context
 - Fixed a bad reference to the ContextValues struct when extracting it from the context in a function
 
 ### <!-- 2 -->🚜 Refactor
+
 - Updating the container base runtime images to use azure linux 3.0
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks
+
 - Updating project-level docs
 - Working through changes to goreleaser config
 - Justfile updates to break out local commands from universal ones
@@ -102,10 +129,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [0.2.0] - 2024-09-24
 
 ### <!-- 0 -->🚀 Features
+
 - Emit kubernetes events for node operations
 - Add logic to sync the node state with mechanic internal state on start
 
 ### <!-- 1 -->🐛 Bug Fixes
+
 - Fixing test failures related to changes to context values
 - Fixing a missed logger call in config
 - Imds updates to fix document incarnation parsing
@@ -121,6 +150,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added a call to get the node object before performing the cordon validation so we don't work on outdated objects
 
 ### <!-- 2 -->🚜 Refactor
+
 - Adding in app state handling to reduce unnecessary kubernetes API calls
 - Pulling app state and context values out into correct packages and updating the cordon/uncordon logic
 - Updating IMDS components to return only errors and work to update app state with shouldDrain logic
@@ -134,6 +164,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Changed mutex unlock defer to include logging
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks
+
 - Fixing accidental image changes
 - Updating dependency versions
 - Fixing golangci-lint failures
@@ -146,23 +177,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [0.1.2] - 2024-07-15
 
 ### <!-- 1 -->🐛 Bug Fixes
+
 - Added missing logic to label nodes when we cordon them
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks
+
 - Repo maintenance
 - Mistake in dependabot config
 
 ## [0.1.1] - 2024-07-12
 
 ### <!-- 1 -->🐛 Bug Fixes
+
 - Added handling for freeze events since they may not be live migrations all the time
 - Minor fixes in IMDS and related test logging
 - Typo for golangci-lint in the workflow
 
 ### <!-- 6 -->🧪 Testing
+
 - Adding tests for imds and node packages
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks
+
 - Adding linting config
 - Updating deploy yamls to move mechanic DS and service account into their own namespace
 
