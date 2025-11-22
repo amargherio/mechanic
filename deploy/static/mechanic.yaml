@@ -128,13 +128,23 @@ spec:
       labels:
         app: mechanic
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - arm64
       containers:
       - env:
         - name: MECHANIC_NODE_NAME
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.10-distroless
+        image: ghcr.io/amargherio/mechanic:v2025.10.1-distroless
         imagePullPolicy: Always
         name: mechanic
         resources:
@@ -152,7 +162,6 @@ spec:
           readOnly: true
       hostPID: true
       nodeSelector:
-        kubernetes.io/arch: amd64
         kubernetes.io/os: linux
       serviceAccountName: mechanic
       volumes:
@@ -231,7 +240,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.10-windows2022
+        image: ghcr.io/amargherio/mechanic:v2025.10.1-windows2022
         imagePullPolicy: Always
         name: mechanic
         resources:
