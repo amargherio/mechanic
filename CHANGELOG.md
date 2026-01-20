@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Calendar Versioning](https://calver.org).
 
+## [2026.01] - 2026-01-20
+
+### <!-- 7 -->⚙️ Miscellaneous Tasks
+- Generating release notes and changelog for 2025.10.1
+- Generating release notes for 2026.01
+
 ## [2025.10.1] - 2025-11-22
 
 ### <!-- 1 -->🐛 Bug Fixes
