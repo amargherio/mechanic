@@ -144,7 +144,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.10.1-distroless
+        image: ghcr.io/amargherio/mechanic:v2026.1-distroless
         imagePullPolicy: Always
         name: mechanic
         resources:
@@ -240,7 +240,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: ghcr.io/amargherio/mechanic:v2025.10.1-windows2022
+        image: ghcr.io/amargherio/mechanic:v2026.1-windows2022
         imagePullPolicy: Always
         name: mechanic
         resources:
