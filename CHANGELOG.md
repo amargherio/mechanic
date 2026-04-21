@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Calendar Versioning](https://calver.org).
 
+## [2026.4] - 2026-04-21
+
+### <!-- 7 -->⚙️ Miscellaneous Tasks
+- Generating static manifests for 2026.1
+
 ## [2026.01] - 2026-01-20
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks
@@ -184,6 +189,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [0.1.0] - 2024-07-10
 
+[2026.4]: https://github.com///compare/v2026.1..v2026.4
+[2026.1]: https://github.com///compare/v2026.01..v2026.1
+[2026.01]: https://github.com///compare/v2025.10.1..v2026.01
 [2025.10.1]: https://github.com///compare/v2025.10..v2025.10.1
 [2025.10]: https://github.com///compare/v2025.7..v2025.10
 [2025.7]: https://github.com///compare/v2025.4..v2025.7
