@@ -16,3 +16,6 @@ update-mocks:
 apply env:
   (which kubectl && which kustomize) || (echo "kubectl and kustomize are required" && exit 1)
   kustomize build ./deploy/overlays/{{env}} | kubectl apply -f -
+
+generate-static:
+  kustomize build ./deploy/base -o ./deploy/static/mechanic.yaml
