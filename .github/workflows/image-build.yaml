@@ -137,6 +137,18 @@ jobs:
       windows_runtime_image: mcr.microsoft.com/windows/nanoserver:ltsc2022
 
     steps:
+      - name: Ensure Docker is running
+        shell: pwsh
+        run: |
+          $svc = Get-Service docker -ErrorAction SilentlyContinue
+          if (-not $svc) { throw "Docker service not found" }
+          if ($svc.Status -ne 'Running') { Start-Service docker }
+          docker version
+      
+      - name: Setup buildx
+        uses: docker/setup-buildx-action@v3
+
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -146,9 +158,10 @@ jobs:
           name: go-binaries
           path: dist
 
-      - name: Fix file permissions for executables
+      - name: Verify Windows binary exists
+        shell: pwsh
         run: |
-          chmod +x dist/mechanic_windows_*/mechanic
+          Get-ChildItem dist -Recurse | Select-Object FullName
 
       - name: Retrieve BIN_PATH from GoReleaser output
         run: |
