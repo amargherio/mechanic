@@ -128,27 +128,15 @@ jobs:
       attestations: write
       id-token: write
 
-    runs-on: windows-2022
+    runs-on: ubuntu-latest
     needs: build-go-binaries
 
     env:
       target_container_registry: ghcr.io/amargherio
-      target_container_tag: $(echo ${{ github.ref }} | sed 's/refs\/tags\///')
+      target_container_tag: ${{ github.ref_name }}
       windows_runtime_image: mcr.microsoft.com/windows/nanoserver:ltsc2022
 
     steps:
-      - name: Ensure Docker is running
-        shell: pwsh
-        run: |
-          $svc = Get-Service docker -ErrorAction SilentlyContinue
-          if (-not $svc) { throw "Docker service not found" }
-          if ($svc.Status -ne 'Running') { Start-Service docker }
-          docker version
-      
-      - name: Setup buildx
-        uses: docker/setup-buildx-action@v3
-
-
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -159,28 +147,37 @@ jobs:
           path: dist
 
       - name: Verify Windows binary exists
-        shell: pwsh
         run: |
-          Get-ChildItem dist -Recurse | Select-Object FullName
+          ls -R dist
 
       - name: Retrieve BIN_PATH from GoReleaser output
+        shell: bash
         run: |
-          $path = (jq -r '.[] | select(.goos == "windows" and .goarch == "amd64") | .path' dist/artifacts.json)
-          echo "BIN_PATH=$path" >> $GITHUB_ENV
+          path=$(jq -r '.[] | select(.goos == "windows" and .goarch == "amd64") | .path' dist/artifacts.json)
+          echo "BIN_PATH=$path" >> "$GITHUB_ENV"
           echo "Binary path: $path"
-                
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          install: true
+          driver: docker-container
+
       - name: Log in to container registry
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login --username ${{ secrets.CONTAINER_REGISTRY_USERNAME }} --password-stdin ${{ env.target_container_registry}}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.CONTAINER_REGISTRY_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Windows 2022 images
-        run: |
-          docker build `
-            --platform windows/amd64 `
-            --build-arg BIN_PATH=${{ env.BIN_PATH }} `
-            --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} `
-            --tag ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022 `
-            -f build/windows.Dockerfile .
-
-      - name: Push images to registry
-        run: |
-          docker push ${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows2022
+      - name: Build and push Windows image with Buildx
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: build/windows.Dockerfile
+          platforms: windows/amd64
+          push: true
+          tags: ${{ env.target_container_registry }}/mechanic:${{ env.target_container_tag }}-windows2022
+          build-args: |
+            BIN_PATH=${{ env.BIN_PATH }}
+            RUNTIME_IMAGE=${{ env.windows_runtime_image }}
