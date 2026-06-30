@@ -1,6 +1,8 @@
 > _**NOTE:**_ The AKS engineering team is working through enhanced drain-on-freeze logic and developing functionality
-> that replicats what Mechanic aims to offer. As the functionality enters GA status, Mechanic will hit end of life
-> and be archived in place. It's recommended to remove mechanic from AKS clusters using the built-in scheduled event
+>  that replicats what Mechanic aims to offer.
+>
+> As of **June, 2026**, this functionality is in public preview. If you opt in to the preview for this feature, 
+> it's recommended to remove mechanic from AKS clusters using the built-in scheduled event
 > handling to prevent conflicting operations and potential disruption.
 >
 > More information on the AKS platform work and tracking can be found at [#3463 - [Feature] Pod Eviction on Freeze and Reboot](https://github.com/Azure/AKS/issues/3463)
