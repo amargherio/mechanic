@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-BASE_IMAGES=("base/core:2.0-nonroot" "distroless/debug:2.0-nonroot" "distroless/minimal:2.0-nonroot")
-IMAGE_URL_BASE="mcr.microsoft.com/cbl-mariner"
+BASE_IMAGES=("base/core:3.0" "distroless/debug:3.0" "distroless/minimal:3.0")
+IMAGE_URL_BASE="mcr.microsoft.com/azurelinux"
 IS_DISTROLESS=false
 
 # check if docker and podman are installed. if we have podman but not docker, alias docker to podman
@@ -16,7 +16,7 @@ fi
 
 for IMAGE in "${BASE_IMAGES[@]}"; do
   SUFFIX=""
-  # drop the 2.0-nonroot suffix from the image name
+  # strip the source image tag to derive the output suffix
   IMAGE_NO_TAG=$(echo $IMAGE | cut -d':' -f1)
 
   case $IMAGE_NO_TAG in
@@ -56,7 +56,7 @@ for IMAGE in "${BASE_IMAGES[@]}"; do
       $CONTAINER_TOOL build -t "$TARGET_REGISTRY/mechanic:$APP_VERSION$SUFFIX" \
         --build-arg RUNTIME_IMAGE="$IMAGE_URL_BASE/$IMAGE" \
         --build-arg BIN_PATH="$bin_path" \
-        --arch $ARCH \
+        --platform "linux/${ARCH}" \
         -f ./build/distroless.Dockerfile .
 
         if [ $? -ne 0 ]; then
@@ -71,7 +71,7 @@ for IMAGE in "${BASE_IMAGES[@]}"; do
       $CONTAINER_TOOL build -t "$TARGET_REGISTRY/mechanic:$APP_VERSION$SUFFIX" \
         --build-arg RUNTIME_IMAGE="$IMAGE_URL_BASE/$IMAGE" \
         --build-arg BIN_PATH="$bin_path" \
-        --arch $ARCH \
+        --platform "linux/${ARCH}" \
         -f ./build/Dockerfile .
 
         if [ $? -ne 0 ]; then

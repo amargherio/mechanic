@@ -45,7 +45,7 @@ func main() {
 	tracer := otel.Tracer("github.com/amargherio/mechanic")
 
 	// initial log bootstrapping
-	var defaultLevel zap.AtomicLevel = zap.NewAtomicLevel()
+	defaultLevel := zap.NewAtomicLevel()
 	defaultLevel.SetLevel(zap.InfoLevel)
 
 	enc := zap.NewProductionEncoderConfig()

@@ -1,4 +1,4 @@
-ARG RUNTIME_IMAGE=mcr.microsoft.com/windows/nanoserver:1809
+ARG RUNTIME_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc2022
 FROM $RUNTIME_IMAGE
 
 ARG BIN_PATH=./mechanic.exe

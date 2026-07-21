@@ -1,3 +1,4 @@
+// Package bypass implements bypass-label reconciliation.
 package bypass
 
 import (

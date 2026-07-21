@@ -1,5 +1,4 @@
-$url = "https://api.github.com/repos/moby/buildkit/releases/latest"
-$version = (Invoke-RestMethod -Uri $url -UseBasicParsing).tag_name
+$version = "v0.31.2"
 $arch = "amd64"
 curl.exe -LO https://github.com/moby/buildkit/releases/download/$version/buildkit-$version.windows-$arch.tar.gz
           
@@ -16,7 +15,7 @@ buildkitd.exe `
   --register-service `
   --service-name buildkitd `
   --containerd-cni-config-path="C:\Program Files\containerd\cni\conf\10-containerd-nat.conf" `
-  --conatienrd-cni-binary-dir="C:\Program Files\containerd\cni\bin" `
+  --containerd-cni-binary-dir="C:\Program Files\containerd\cni\bin" `
   --debug `
   --log-file="C:\Windows\Temp\buildkitd.log"
           

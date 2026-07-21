@@ -1,3 +1,4 @@
+// Package logging integrates structured logging with trace context.
 package logging
 
 import (

@@ -1,3 +1,4 @@
+// Package tracing configures OpenTelemetry tracing for Mechanic.
 package tracing
 
 import (

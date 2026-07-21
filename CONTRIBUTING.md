@@ -19,7 +19,7 @@ so that the maintainers can review and discuss the proposed changes.
 
 The dev environment requirements for mechanic are pretty minimal. Mechanic depends on the following tools:
 
-- A valid Go installation (1.22 is the current version used)
+- A valid Go installation (1.26.5 is the current version used)
 - Docker or another container runtime for building images
 
 In addition to the two hard dependencies, optional tools that can be helpful are:

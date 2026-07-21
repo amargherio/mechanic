@@ -1,15 +1,22 @@
-buildctl build --frontend dockerfile.v0 \
-    --local context=. \
-    --local dockerfile=.\build\windows.Dockerfile \
-    --opt platform=windows/amd64 \
-    --build-arg BIN_PATH=dist/mechanic_windows_amd64*/mechanic \
-    --build-arg RUNTIME_IMAGE=${{ env.windows_runtime_image }} \
-    --output type=image,name=${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$BinPath,
+    [string]$RuntimeImage = "mcr.microsoft.com/windows/nanoserver:ltsc2022",
+    [string]$ImageName = "docker.io/library/mechanic:local-amd64",
+    [string]$BuildctlPath = "C:\Program Files\buildkit\bin\buildctl.exe"
+)
 
-buildctl build --frontend dockerfile.v0 \
-    --local context=. \
-    --local dockerfile=.\build\windows.Dockerfile \
-    --opt platform=windows/arm64 \
-    --opt build-arg:BIN_PATH=dist/mechanic_windows_arm64/mechanic \
-    --opt build-arg:RUNTIME_IMAGE=${{ env.windows_runtime_image }} \
-    --output type=image,name=${{ env.target_container_registry}}/mechanic:${{ env.target_container_tag }}-windows
+& $BuildctlPath build `
+    --frontend dockerfile.v0 `
+    --local context=. `
+    --local dockerfile=.\build `
+    --opt filename=windows.Dockerfile `
+    --opt platform=windows/amd64 `
+    --opt "build-arg:BIN_PATH=$BinPath" `
+    --opt "build-arg:RUNTIME_IMAGE=$RuntimeImage" `
+    --output "type=image,name=$ImageName,store=true"
+
+if ($LASTEXITCODE -ne 0) {
+    throw "buildctl build failed with exit code $LASTEXITCODE"
+}

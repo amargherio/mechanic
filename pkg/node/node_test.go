@@ -249,7 +249,7 @@ func TestValidateCordon(t *testing.T) {
 		{
 			name: "node cordoned, state uncordoned, no upcoming event, mechanic managed",
 			prepNodeFunc: func(node *v1.Node) {
-				node.ObjectMeta.Labels["mechanic.cordoned"] = "true"
+				node.Labels["mechanic.cordoned"] = "true"
 				node.Spec.Unschedulable = true
 			},
 			expectedState: &appstate.State{
@@ -268,7 +268,7 @@ func TestValidateCordon(t *testing.T) {
 		{
 			name: "node uncordoned, state cordoned, no upcoming event",
 			prepNodeFunc: func(node *v1.Node) {
-				node.ObjectMeta.Labels["mechanic.cordoned"] = "true"
+				node.Labels["mechanic.cordoned"] = "true"
 				node.Spec.Unschedulable = false
 			},
 			inputState: &appstate.State{
@@ -305,7 +305,7 @@ func TestValidateCordon(t *testing.T) {
 		{
 			name: "node cordoned, state cordoned, no upcoming event",
 			prepNodeFunc: func(node *v1.Node) {
-				node.ObjectMeta.Labels["mechanic.cordoned"] = "true"
+				node.Labels["mechanic.cordoned"] = "true"
 				node.Spec.Unschedulable = true
 			},
 			inputState: &appstate.State{
@@ -326,7 +326,7 @@ func TestValidateCordon(t *testing.T) {
 		{
 			name: "should reset drain state when uncordoning a node we manage",
 			prepNodeFunc: func(node *v1.Node) {
-				node.ObjectMeta.Labels["mechanic.cordoned"] = "true"
+				node.Labels["mechanic.cordoned"] = "true"
 				node.Spec.Unschedulable = false
 			},
 			inputState: &appstate.State{

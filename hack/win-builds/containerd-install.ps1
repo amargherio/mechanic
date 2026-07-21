@@ -1,4 +1,4 @@
-$Version = "1.7.23"
+$Version = "2.3.3"
 $Arch = "amd64"
           
 curl.exe -LO https://github.com/containerd/containerd/releases/download/v$Version/containerd-$Version-windows-$Arch.tar.gz

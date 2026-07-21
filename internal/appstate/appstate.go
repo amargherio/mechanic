@@ -1,3 +1,4 @@
+// Package appstate defines Mechanic's shared reconciliation state.
 package appstate
 
 import "sync"

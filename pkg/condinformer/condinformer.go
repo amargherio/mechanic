@@ -1,3 +1,4 @@
+// Package condinformer observes Kubernetes node conditions.
 package condinformer
 
 import (

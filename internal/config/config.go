@@ -1,3 +1,4 @@
+// Package config loads and monitors Mechanic's runtime configuration.
 package config
 
 import (
@@ -19,8 +20,8 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const ENVVAR_PREFIX = "MECHANIC_"
-const ENVVAR_POLLING_INTERVAL = 10 * time.Second
+const envVarPrefix = "MECHANIC_"
+const envVarPollingInterval = 10 * time.Second
 
 // ScheduledEventDrainConditions defines which VM scheduled events should trigger node draining
 type ScheduledEventDrainConditions struct {
@@ -259,7 +260,7 @@ func EnableHotReload(ctx context.Context, v *viper.Viper, cfg *Config, log *zap.
 	// Environment variable polling (Kubernetes cannot mutate env in-place but useful for local dev or injected updates)
 	prevHash := hashMechanicEnvs()
 	go func() {
-		ticker := time.NewTicker(ENVVAR_POLLING_INTERVAL)
+		ticker := time.NewTicker(envVarPollingInterval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -281,7 +282,7 @@ func hashMechanicEnvs() string {
 	envs := os.Environ()
 	var filtered []string
 	for _, e := range envs {
-		if strings.HasPrefix(e, ENVVAR_PREFIX) {
+		if strings.HasPrefix(e, envVarPrefix) {
 			filtered = append(filtered, e)
 		}
 	}

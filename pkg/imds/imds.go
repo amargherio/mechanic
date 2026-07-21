@@ -1,3 +1,4 @@
+// Package imds queries Azure Instance Metadata Service scheduled events.
 package imds
 
 import (
@@ -37,7 +38,7 @@ const (
 
 // ScheduledEvent represents a single event returned as part of the full response returned from the IMDS scheduled events API
 type ScheduledEvent struct {
-	EventId      string             `json:"EventId"`
+	EventId      string             `json:"EventId"` //nolint:staticcheck // Name mirrors the Azure IMDS API.
 	Type         ScheduledEventType `json:"EventType"`
 	ResourceType string             `json:"ResourceType"`
 	Resources    []string           `json:"Resources"`
@@ -307,7 +308,7 @@ func (ic IMDSClient) QueryIMDS(ctx context.Context) (ScheduledEventsResponse, er
 		return ScheduledEventsResponse{}, err
 	}
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// decode the JSON response and handle an EOF response
 	var generic map[string]interface{}

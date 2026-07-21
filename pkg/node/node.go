@@ -1,3 +1,4 @@
+// Package node reconciles Kubernetes node cordon and drain state.
 package node
 
 import (
@@ -87,19 +88,19 @@ func cordonNode(ctx context.Context, clientset kubernetes.Interface, node *v1.No
 		return false, retryErr
 	}
 
-	res_node, err := clientset.CoreV1().Nodes().Get(ctx, node.Name, metav1.GetOptions{})
+	resNode, err := clientset.CoreV1().Nodes().Get(ctx, node.Name, metav1.GetOptions{})
 	if err != nil {
 		log.Warnw("Failed to get node after cordon - returning without updating state", "node", node.Name, "error", err, "traceCtx", ctx)
 		return false, err
 	}
 
 	// validate result node state
-	if !res_node.Spec.Unschedulable {
+	if !resNode.Spec.Unschedulable {
 		log.Errorw("Node was not cordoned", "node", node.Name, "traceCtx", ctx)
 		return false, errors.New("node was not cordoned")
 	}
 
-	if res_node.GetLabels()["mechanic.cordoned"] != "true" {
+	if resNode.GetLabels()["mechanic.cordoned"] != "true" {
 		log.Errorw("Node was not labeled as cordoned by mechanic", "node", node.Name, "traceCtx", ctx)
 		return false, errors.New("node was not labeled as cordoned by mechanic")
 	}
@@ -365,7 +366,7 @@ func removeMechanicCordonLabel(ctx context.Context, node *v1.Node, clientset kub
 	log.Debugw("Mechanic label removed from node", "node", node.Name, "traceCtx", ctx)
 }
 
-// handleNodeCordonAndDrain handles the shared logic for cordoning and draining a node
+// HandleNodeCordonAndDrain handles the shared logic for cordoning and draining a node.
 func HandleNodeCordonAndDrain(ctx context.Context, clientset kubernetes.Interface, node *v1.Node, state *appstate.State, recorder record.EventRecorder, tracer trace.Tracer, log *zap.SugaredLogger) {
 	ctx, span := tracer.Start(ctx, "handleNodeCordonAndDrain")
 	defer span.End()

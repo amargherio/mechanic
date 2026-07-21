@@ -9,18 +9,19 @@ $subnet = $natInfo.Subnets[0].AddressPrefix
           
 $cniConfPath = "$env:ProgramFiles\containerd\cni\conf\10-containerd-nat.conf"
 $cniBinDir = "$env:ProgramFiles\containerd\cni\bin"
-$cniVersion = "0.3.0"
+$cniPluginVersion = "0.3.3"
+$cniVersion = "1.0.0"
           
 mkdir $cniBinDir -Force
-curl.exe -LO https://github.com/microsoft/windows-container-networking/releases/download/v$cniVersion/windows-container-networking-cni-amd64-v$cniVersion.zip
-tar xvf windows-container-networking-cni-amd64-v$cniVersion.zip -C $cniBinDir
+curl.exe -LO https://github.com/microsoft/windows-container-networking/releases/download/v$cniPluginVersion/windows-container-networking-cni-amd64-v$cniPluginVersion.zip
+tar xvf windows-container-networking-cni-amd64-v$cniPluginVersion.zip -C $cniBinDir
           
 $natConfig = @"
 {
   "cniVersion": "$cniVersion",
   "name": "$networkName",
   "type": "nat",
-  "master": "Ethernet"
+  "master": "Ethernet",
   "ipam": {
     "subnet": "$subnet",
     "routes": [

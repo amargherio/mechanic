@@ -1,27 +1,21 @@
-ARG BUILD_IMAGE=golang:1.22-bookworm
-ARG RUNTIME_IMAGE=mcr.microsoft.com/cbl-mariner/distroless/minimal:2.0-nonroot
-ARG BIN_PATH=mechanic
+FROM golang:1.26.5-bookworm AS builder
 
-FROM $BUILD_IMAGE as builder
-
-RUN wget --quiet https://github.com/goreleaser/goreleaser/releases/download/v2.3.2/goreleaser_2.3.2_amd64.deb \
-    && dpkg -i goreleaser_2.3.2_amd64.deb \
-    && rm goreleaser_2.3.2_amd64.deb
+RUN go install github.com/goreleaser/goreleaser/v2@v2.17.0
 
 WORKDIR /usr/src/mechanic
 COPY . .
 
-RUN goreleaser build --snapshot --clean
+RUN goreleaser build --snapshot --clean --single-target --output /tmp/mechanic \
+    && test -x /tmp/mechanic
 
-FROM $RUNTIME_IMAGE
-# if the RUNTIME_IMAGE contains distroless, skip the following steps
+FROM mcr.microsoft.com/azurelinux/base/core:3.0
 USER root
 RUN tdnf update -y \
-    && tdnf upgrade -y \
+    && tdnf distro-sync -y \
     && tdnf clean all \
     && rm -rf /var/cache/tdnf
 USER nonroot
 
-COPY --from=builder "/usr/src/mechanic/${BIN_PATH}" /usr/local/bin/mechanic
+COPY --from=builder /tmp/mechanic /usr/local/bin/mechanic
 
 CMD ["mechanic"]

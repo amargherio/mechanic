@@ -29,17 +29,14 @@ There are two installation paths:
 
 ### (optional) Building the container image
 
-The `Dockerfile` located in the build directory uses a multi-stage build to build the mechanic binary from source and then copy it into a
-container image. The build image uses Go 1.22 image from the official Go repository and allows for user input via build arguments to
-specify the runtime image. If no runtime image is provided, the default is `mcr.microsoft.com/cbl-mariner/distroless/minimal:2.0-nonroot`.
+The `build/full-build.Dockerfile` uses a multi-stage build to build the mechanic binary from source and then copy it into a
+container image. The build image uses Go 1.26.5 from the official Go repository and uses
+`mcr.microsoft.com/azurelinux/base/core:3.0` as the default runtime image.
 
-Building the image can be done via the Justfile or by running the build command manually:
+Build the image with:
 
 ```shell
-just build
-
-# or, if you prefer calling the build command directly
-docker build -t mechanic:latest -f build/Dockerfile .
+docker build -t mechanic:latest -f build/full-build.Dockerfile .
 ```
 
 Once built, you can update the tag on the image via `docker tag mechanic:latest <registry>/<namespace>/mechanic:latest` and push the image to your registry.

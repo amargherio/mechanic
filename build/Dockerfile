@@ -1,10 +1,10 @@
-ARG RUNTIME_IMAGE=mcr.microsoft.com/cbl-mariner/distroless/minimal:2.0-nonroot
+ARG RUNTIME_IMAGE=mcr.microsoft.com/azurelinux/base/core:3.0
 FROM $RUNTIME_IMAGE
 
 ARG BIN_PATH=./mechanic
 
 USER root
-RUN tdnf update \
+RUN tdnf update -y \
     && tdnf distro-sync -y \
     && tdnf clean all
 USER nonroot

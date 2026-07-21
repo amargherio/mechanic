@@ -9,12 +9,18 @@ on:
       - 'internal/**'
       - 'pkg/**'
       - 'go.mod'
+      - 'go.sum'
+      - '.goreleaser.yaml'
+      - '.github/workflows/test-run.yaml'
   pull_request:
     paths:
       - 'cmd/**'
       - 'internal/**'
       - 'pkg/**'
       - 'go.mod'
+      - 'go.sum'
+      - '.goreleaser.yaml'
+      - '.github/workflows/test-run.yaml'
 
 permissions:
   contents: read
@@ -25,9 +31,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v7
       with:
         go-version-file: go.mod
     - name: Install dependencies
@@ -42,13 +48,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v7
       with:
         go-version-file: go.mod
     - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v6
+      uses: goreleaser/goreleaser-action@v7
       with:
         distribution: goreleaser
         version: "~> v2"

@@ -9,12 +9,18 @@ on:
       - 'internal/**'
       - 'pkg/**'
       - 'go.mod'
+      - 'go.sum'
+      - '.golangci.yaml'
+      - '.github/workflows/lint.yaml'
   pull_request:
     paths:
       - 'cmd/**'
       - 'internal/**'
       - 'pkg/**'
       - 'go.mod'
+      - 'go.sum'
+      - '.golangci.yaml'
+      - '.github/workflows/lint.yaml'
 
 permissions:
   contents: read
@@ -27,14 +33,14 @@ jobs:
       pull-requests: read
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v7
       with:
         go-version-file: go.mod
     - name: golangci-lint
-      uses: golangci/golangci-lint-action@v6
+      uses: golangci/golangci-lint-action@v9
       with:
-        version: latest
+        version: v2.12.2
         args: -v --timeout 10m
     
