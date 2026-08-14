@@ -1,4 +1,4 @@
-FROM golang:1.26.5-bookworm AS builder
+FROM golang:1.27rc2-bookworm AS builder
 
 RUN go install github.com/goreleaser/goreleaser/v2@v2.17.0
 
