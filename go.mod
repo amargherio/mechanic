@@ -12,10 +12,10 @@ require (
 	go.opentelemetry.io/otel/trace v1.46.0
 	go.uber.org/mock v0.6.0
 	go.uber.org/zap v1.28.0
-	k8s.io/api v0.36.3
-	k8s.io/apimachinery v0.36.3
-	k8s.io/client-go v0.36.3
-	k8s.io/kubectl v0.36.3
+	k8s.io/api v0.37.1
+	k8s.io/apimachinery v0.37.1
+	k8s.io/client-go v0.37.1
+	k8s.io/kubectl v0.37.1
 )
 
 require (
@@ -61,7 +61,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/onsi/ginkgo/v2 v2.32.0 // indirect
 	github.com/onsi/gomega v1.42.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
@@ -92,8 +91,8 @@ require (
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/cli-runtime v0.36.3 // indirect
-	k8s.io/component-base v0.36.3 // indirect
+	k8s.io/cli-runtime v0.37.1 // indirect
+	k8s.io/component-base v0.37.1 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad // indirect
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
