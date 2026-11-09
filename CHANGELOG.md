@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Calendar Versioning](https://calver.org).
 
+## [2026.10] - 2026-11-09
+
+### <!-- 7 -->⚙ Miscellaneous Tasks
+
+- Dependency updates
+- Generating static manifests for 2026.10
+
 ## [2026.7] - 2026-07-21
 
 ### <!-- 7 -->⚙️ Miscellaneous Tasks
