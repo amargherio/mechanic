@@ -3,8 +3,7 @@ FROM $RUNTIME_IMAGE
 
 ARG BIN_PATH=./mechanic.exe
 
-RUN mkdir C:\\mechanic
-ENV PATH="$WindowsPATH;C:\\mechanic"
+ENV PATH="C:\\mechanic;${PATH}"
 COPY $BIN_PATH C:\\mechanic\\mechanic.exe
 
 CMD ["mechanic.exe"]
